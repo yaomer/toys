@@ -25,7 +25,7 @@ int     is_expr_empty(Expr *);
 int     getop(char *);
 void    exp_trans(void);
 int     op_prior(int);
-void    mathfunc(char *);
+double  fac(double);
 
 void    push(double);
 double  pop(void);

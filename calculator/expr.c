@@ -10,7 +10,7 @@ Expr *expr;
  */
 
 /*
- * 将输入中的后缀表达式转换为中缀表达式
+ * 将输入中的中缀表达式转换为后缀表达式
  */
 void
 exp_trans(void)
@@ -18,15 +18,15 @@ exp_trans(void)
     int c, lastc = 'a';
 
     while ((c = getchar()) != EOF) {
-        if (isspace(c) || isdigit(c) || c == '.') {        /*  原样保存空白符和数字  */
+        if (isspace(c) || isdigit(c) || c == '.') {  /*  原样保存空白符和数字  */
             if (c == '\n') {
-                while (!isempty()) {        /*  遇见\n，弹出栈中所有操作符  */
+                while (!isempty()) {  /*  遇见\n，弹出栈中所有操作符  */
                     en_expr(expr, pop());
                     en_expr(expr, ' ');
                 }
                 break;
             }
-            if (!isspace(lastc) || !isspace(c))    /* 遇见连续的多个空白符只保存一个 */
+            if (!isspace(lastc) || !isspace(c))  /* 遇见连续的多个空白符只保存一个 */
                 en_expr(expr, c);
         } else if (op_prior(c) || c == ')') {
             if (isempty() && c != '-') {
@@ -41,7 +41,7 @@ exp_trans(void)
                     en_expr(expr, ' ');
                 }
             } else {
-                if (c == '-') {       /*  判断是负号还是减号  */
+                if (c == '-') {   /*  判断是负号还是减号  */
                     if (isdigit(c = getchar())) {
                         en_expr(expr, '-');
                         en_expr(expr, c);
@@ -76,8 +76,12 @@ op_prior(int c)
     case '%':
         return 2;
         break;
-    case '(':
+    case '^':  /* 乘方 */
+    case '!':  /* 阶乘 */
         return 3;
+        break;
+    case '(':
+        return 4;
         break;
     default:
         return 0;
@@ -122,13 +126,27 @@ getop(char *s)
             *++s = c;
         else
             return '-';
-    }     /*  收集数  */
-    if (isdigit(head_expr(expr)))
-        for (de_expr(expr); isdigit(*++s = head_expr(expr)); de_expr(expr))
-            ;
-    if (head_expr(expr) == '.')
-        for (de_expr(expr); isdigit(*++s = head_expr(expr)); de_expr(expr))
-            ;
+    }
+
+    if (isdigit(head_expr(expr))) {
+        de_expr(expr);
+        while (isdigit((*++s = head_expr(expr))))
+            de_expr(expr);
+    }
+    if (head_expr(expr) == '.') {
+        de_expr(expr);
+        while (isdigit((*++s = head_expr(expr))))
+            de_expr(expr);
+    }
     *s = '\0';
     return NUMBER;
+}
+
+double
+fac(double n)
+{
+    if (n == 0.0 || n == 1.0)
+        return 1.0;
+    else
+        return n * fac(n - 1);
 }
