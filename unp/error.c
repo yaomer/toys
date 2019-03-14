@@ -2,7 +2,8 @@
 
 static void err_doit(int, int, const char *, va_list);
 
-void err_ret(const char *fmt, ...)
+void
+err_ret(const char *fmt, ...)
 {
     va_list ap;
 
@@ -11,7 +12,8 @@ void err_ret(const char *fmt, ...)
     va_end(ap);
 }
 
-void err_sys(const char *fmt, ...)
+void
+err_sys(const char *fmt, ...)
 {
     va_list ap;
 
@@ -21,7 +23,8 @@ void err_sys(const char *fmt, ...)
     exit(1);
 }
 
-void err_cont(int error, const char *fmt, ...)
+void
+err_cont(int error, const char *fmt, ...)
 {
     va_list ap;
 
@@ -30,7 +33,8 @@ void err_cont(int error, const char *fmt, ...)
     va_end(ap);
 }
 
-void err_exit(int error, const char *fmt, ...)
+void
+err_exit(int error, const char *fmt, ...)
 {
     va_list ap;
 
@@ -40,7 +44,8 @@ void err_exit(int error, const char *fmt, ...)
     exit(1);
 }
 
-void err_dump(const char *fmt, ...)
+void
+err_dump(const char *fmt, ...)
 {
     va_list ap;
 
@@ -51,7 +56,8 @@ void err_dump(const char *fmt, ...)
     exit(1);
 }
 
-void err_msg(const char *fmt, ...)
+void
+err_msg(const char *fmt, ...)
 {
     va_list ap;
 
@@ -60,7 +66,8 @@ void err_msg(const char *fmt, ...)
     va_end(ap);
 }
 
-void err_quit(const char *fmt, ...)
+void
+err_quit(const char *fmt, ...)
 {
     va_list ap;
 
