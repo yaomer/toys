@@ -27,7 +27,7 @@ public:
     // 修改fd上的事件
     void change(int fd, int events)
     {
-        std::map<int, int>::iterator it = _indexs.find(fd);
+        auto it = _indexs.find(fd);
         assert(it != _indexs.end());
         struct pollfd *pfd = &_pollfds[it->second];
         pfd->events = events;
@@ -35,7 +35,7 @@ public:
     // 从内核关注列表中移除fd
     void del(int fd)
     {
-        std::map<int, int>::iterator it = _indexs.find(fd);
+        auto it = _indexs.find(fd);
         assert(it != _indexs.end());
         size_t end = _pollfds.size() - 1;
         std::swap(_pollfds[it->second], _pollfds[end]);

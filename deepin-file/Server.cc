@@ -6,7 +6,11 @@
 int main(void)
 {
     EventLoop loop;
-    int listenfd = listenPort(8080);
-    loop.addChannel(listenfd);
+    Channel *chl = new Channel(&loop, 0);
+    chl->setReadCb(chl->handleAccept);
+    chl->setMessageCb(chl->handleMessage);
+    chl->setCloseCb(chl->handleClose);
+    chl->setErrorCb(chl->handleError);
+    loop.addChannel(chl);
     loop.run();
 }

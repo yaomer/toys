@@ -1,6 +1,7 @@
 #ifndef _EVENTLOOP_H
 #define _EVENTLOOP_H
 
+#include <iostream>
 #include <map>
 #include "Epoll.h"
 #include "Channel.h"
@@ -9,22 +10,21 @@ class EventLoop {
 public:
     EventLoop() : _quit(0) {  }
     ~EventLoop() {  }
-    void addChannel(int fd)
+    void addChannel(Channel *chl)
     {
-        Channel *chl = new Channel(this, fd);
         chl->enableRead();
         _epoll.add(chl->fd(), chl->events());
         _map.insert(std::pair<int, Channel*>(chl->fd(), chl));
     }
-    void delChannel(int fd)
+    void delChannel(Channel *chl)
     {
-        _epoll.del(fd);
-        _map.erase(fd);
+        _epoll.del(chl->fd());
+        _map.erase(chl->fd());
     }
     void changeEvent(int fd, int events) { _epoll.change(fd, events); }
     Channel *search(int fd) 
     { 
-        std::map<int, Channel*>::iterator it = _map.find(fd);
+        auto it = _map.find(fd);
         assert(it != _map.end());
         return it->second;
     } 
@@ -37,6 +37,7 @@ public:
                 auto end = _activeChannels.end();
                 for (auto x = _activeChannels.begin(); x != end; x++)
                     (*x)->handleEvent();
+                _activeChannels.clear();
             } else if (nevents == 0)
                 ; // timer
             else
