@@ -2,23 +2,30 @@
 #define _CODER_H
 
 #include <limits.h>
+#include <string>
 
 // [_type] [_path] [_macAddr]\r\n REQ_LINE
 // [_fileSize: size]\r\n REQ_HEADER
 // \r\n
-// Text
+// [Text]
+//
+enum STATE { 
+    REQ_LINE,   // 请求行
+    REQ_HEADER, // 请求头部
+    REQ_RECVING,  // 正在接收文件
+    REQ_SENDING,  // 正在发送文件
+};
 
 struct Request {
-    enum STATE { REQ_LINE, REQ_HEADER, REQ_OK, REQ_ERROR };
-    int _state = REQ_LINE;
-    // 请求类型
-    char _type[8];
-    // 请求的文件路径
-    char _path[PATH_MAX + 1];
-    // 请求客户机的mac地址
-    char _macAddr[32];
-    // 文件大小
-    size_t _fileSize;
+    Request() 
+        : _state(REQ_LINE), _fd(-1), _filesize(0) {  }
+    ~Request() {  }
+    int _state;
+    int _fd;
+    size_t _filesize;
+    std::string _type;
+    std::string _path;
+    std::string _macAddr;
 };
 
 #endif // _CODER_H

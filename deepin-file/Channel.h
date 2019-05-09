@@ -19,8 +19,8 @@ public:
     int fd() { return _fd; }
     int events() { return _events; }
     void setRevents(int revents) { _revents = revents; }
-    int isReading() { return _events & POLLIN; }
-    int isWriting() { return _events & POLLOUT; }
+    int isReading() { return _revents & POLLIN; }
+    int isWriting() { return _revents & POLLOUT; }
     void enableRead() { _events |= POLLIN; }
     void enableWrite() { _events |= POLLOUT; changeEvent(); }
     void disableWrite() { _events &= ~POLLOUT; changeEvent(); }

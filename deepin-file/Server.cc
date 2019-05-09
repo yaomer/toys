@@ -6,7 +6,8 @@
 int main(void)
 {
     EventLoop loop;
-    Channel *chl = new Channel(&loop, 0);
+    int listenfd = listenPort(8080);
+    Channel *chl = new Channel(&loop, listenfd);
     chl->setReadCb(chl->handleAccept);
     chl->setMessageCb(chl->handleMessage);
     chl->setCloseCb(chl->handleClose);
