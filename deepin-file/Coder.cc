@@ -61,7 +61,7 @@ int dirIsExist(const char *name)
 void recvFile(Request& req)
 {
     Buffer buf;
-    req._fd = open(req._macAddr, O_WRONLY | O_APPEND);
+    req._fd = open(req._macAddr.c_str(), O_WRONLY | O_APPEND);
     ssize_t n = write(req._fd, buf.peek(), buf.readable());
     buf.retrieveAll();
     if (n < req._filesize) {
@@ -76,10 +76,10 @@ void recvFile(Request& req)
 }
 
 // 将备份文件发送给客户
-void sendFile(Channel& chl)
+void sendFile(Channel& chl, Request& req)
 {
     Buffer buf;
-    int fd = open(req._macAddr, O_RDONLY);
+    int fd = open(req._macAddr.c_str(), O_RDONLY);
     while (buf.readFd(fd) > 0) {
         chl.send(buf.peek(), buf.readable());
         buf.retrieveAll();
@@ -93,34 +93,34 @@ void replyResponse(void)
 
 }
 
-void Channel::handleMessage(Channel& chl)
+void onMessage(Channel& chl, Buffer& buf, Request& req)
 {
     // 解析用户请求
-    if (chl._req._state == REQ_RECVING) {
-        writeToFile(chl._input, chl._req);
+    if (req._state == REQ_RECVING) {
+
         return;
     }
     // 可能有一行完整的消息
-    while (chl._input.readable() >= 2) {
-        int crlf = chl._input.findCrlf();
+    while (buf.readable() >= 2) {
+        int crlf = buf.findCrlf();
         // 至少有一行请求
         if (crlf >= 0) {
-            if (chl._req._state == REQ_LINE) {
-                parseLine(chl._req, chl._input, crlf);
+            if (req._state == REQ_LINE) {
+                parseLine(req, buf, crlf);
                 crlf += 2;
-            } else if (chl._req._state == REQ_HEADER) {
-                parseHeader(chl._req, chl._input, crlf);
+            } else if (req._state == REQ_HEADER) {
+                parseHeader(req, buf, crlf);
                 crlf += 2;
             } else
                 break;
-            chl._input.retrieve(crlf);
+            buf.retrieve(crlf);
         } else
             break;
     }
     // 回复响应
-    if (chl._req._type == "SAVE") {
+    if (req._type == "SAVE") {
         ;
-    } else if (chl._req._type == "GET") {
+    } else if (req._type == "GET") {
         ;
     }
     replyResponse();

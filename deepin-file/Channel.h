@@ -1,22 +1,23 @@
 #ifndef _CHANNEL_H
 #define _CHANNEL_H
 
-#include <unistd.h>
 #include <sys/poll.h>
 #include "Buffer.h"
 #include "Coder.h"
+#include "Socket.h"
+#include "Noncopyable.h"
 
 class EventLoop;
 
-class Channel {
+// 不可拷贝的
+class Channel : Noncopyable {
 public:
-    typedef void (*Callback)(Channel&);
-    explicit Channel(EventLoop *loop, int fd_)
-        : _loop(loop), _fd(fd_), _readCb(NULL), 
-        _writeCb(NULL), _closeCb(NULL), _errorCb(NULL), 
-        _messageCb(NULL), _events(0), _revents(0) {  }
-    ~Channel() { close(_fd); }
-    int fd() { return _fd; }
+    typedef std::function<void(Channel&, Buffer&, Request&)> MessageCallback;
+    typedef std::function<void()> ReadCallback;
+    explicit Channel(EventLoop *loop) : _loop(loop) {  }
+    ~Channel() {  }
+    int fd() { return _fd.sockfd(); }
+    Socket& sockfd() { return _fd; }
     int events() { return _events; }
     void setRevents(int revents) { _revents = revents; }
     int isReading() { return _revents & POLLIN; }
@@ -24,33 +25,26 @@ public:
     void enableRead() { _events |= POLLIN; }
     void enableWrite() { _events |= POLLOUT; changeEvent(); }
     void disableWrite() { _events &= ~POLLOUT; changeEvent(); }
-    void changeEvent(void);
+    void changeEvent();
     void send(const char *s, size_t len);
-    void setReadCb(Callback _cb) { _readCb = _cb; }
-    void setWriteCb(Callback _cb) { _writeCb = _cb; }
-    void setMessageCb(Callback _cb) { _messageCb = _cb; }
-    void setCloseCb(Callback _cb) { _closeCb = _cb; }
-    void setErrorCb(Callback _cb) { _closeCb = _cb; }
-    void handleEvent(void);
-    static void handelRead(Channel& chl);
-    static void handleWrite(Channel& chl);
-    static void handleMessage(Channel& chl);
-    static void handleClose(Channel& chl);
-    static void handleError(Channel& chl);
-    static void handleAccept(Channel& chl);
+    void setReadCb(const ReadCallback _cb) { _readCb = _cb; }
+    void setMessageCb(const MessageCallback _cb) { _messageCb = _cb; }
+    void handleEvent();
+    void handelRead();
+    void handleWrite();
+    void handleClose();
+    void handleError();
+    void handleAccept();
 private:
     EventLoop *_loop;
-    int _fd;
-    int _events;
-    int _revents;
+    Socket _fd;
+    int _events = 0;
+    int _revents = 0;
     Buffer _input;
     Buffer _output;
     Request _req;
-    Callback _readCb;
-    Callback _writeCb;
-    Callback _messageCb;
-    Callback _closeCb;
-    Callback _errorCb;
+    ReadCallback _readCb = nullptr;
+    MessageCallback _messageCb = nullptr;
 };
 
 #endif // _CHANNEL_H

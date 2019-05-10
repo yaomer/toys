@@ -5,13 +5,13 @@
 #include <unistd.h>
 #include <vector>
 #include <map>
+#include "Noncopyable.h"
 
 class EventLoop;
 
-class Epoll {
+// 不可拷贝的
+class Epoll : Noncopyable {
 public:
-    Epoll() {  }
-    ~Epoll() {  }
     // 事件多路分发器
     int wait(EventLoop *loop, int64_t timeout);
     // 注册一个新的fd

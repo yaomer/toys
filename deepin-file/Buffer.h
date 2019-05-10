@@ -6,9 +6,8 @@
 
 class Buffer {
 public:
-    explicit Buffer() 
-        : _buf(INIT_SIZE), _readindex(0), _writeindex(0) { }
-    ~Buffer() { }
+    Buffer() : _buf(INIT_SIZE) {  }
+    ~Buffer() {  }
     static const size_t INIT_SIZE = 1024;
     static const char _crlf[];
     char *begin() { return &*_buf.begin(); }
@@ -23,6 +22,7 @@ public:
         _buf.insert(_buf.begin() + _writeindex, data, data + len);
         _writeindex += len;
     }
+    char *c_str() { append("\0", 1); return peek(); }
     // 内部腾挪
     void makeSpace(size_t len)
     {
@@ -51,8 +51,8 @@ public:
     int readFd(int fd);
 private:
     std::vector<char> _buf;
-    size_t _readindex;
-    size_t _writeindex;
+    size_t _readindex = 0;
+    size_t _writeindex = 0;
 };
 
 #endif // _BUFFER_H

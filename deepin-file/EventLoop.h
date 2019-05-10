@@ -5,30 +5,39 @@
 #include <map>
 #include "Epoll.h"
 #include "Channel.h"
+#include "Noncopyable.h"
 
-class EventLoop {
+// 不可拷贝的
+class EventLoop : Noncopyable {
 public:
-    EventLoop() : _quit(0) {  }
-    ~EventLoop() {  }
+    // 向loop中添加一个新的Channel
     void addChannel(Channel *chl)
     {
         chl->enableRead();
         _epoll.add(chl->fd(), chl->events());
-        _map.insert(std::pair<int, Channel*>(chl->fd(), chl));
+        _channelMap.insert(std::pair<int,
+                std::shared_ptr<Channel>>(chl->fd(), chl));
     }
+    // 从loop中移除一个Channel
     void delChannel(Channel *chl)
     {
         _epoll.del(chl->fd());
-        _map.erase(chl->fd());
+        _channelMap.erase(chl->fd());
     }
-    void changeEvent(int fd, int events) { _epoll.change(fd, events); }
-    Channel *search(int fd) 
+    void changeEvent(int fd, int events) 
     { 
-        auto it = _map.find(fd);
-        assert(it != _map.end());
+        _epoll.change(fd, events); 
+    }
+    std::shared_ptr<Channel> search(int fd)
+    {
+        auto it = _channelMap.find(fd);
+        assert(it != _channelMap.end());
         return it->second;
-    } 
-    void fillActiveChannel(Channel *chl) { _activeChannels.push_back(chl); }
+    }
+    void fillActiveChannel(std::shared_ptr<Channel> chl) 
+    { 
+        _activeChannels.push_back(chl); 
+    }
     void run() 
     {  
         while (!_quit) {
@@ -36,7 +45,8 @@ public:
             if (nevents > 0) {
                 auto end = _activeChannels.end();
                 for (auto x = _activeChannels.begin(); x != end; x++)
-                    (*x)->handleEvent();
+                    (*x).get()->handleEvent();
+                    // (*x)->handleEvent();
                 _activeChannels.clear();
             } else if (nevents == 0)
                 ; // timer
@@ -47,9 +57,11 @@ public:
     void quit() { _quit = 1; }
 private:
     Epoll _epoll;
-    std::map<int, Channel*> _map;
-    std::vector<Channel*> _activeChannels;
-    int _quit;
+    std::map<int, std::shared_ptr<Channel>> _channelMap;
+    // std::map<int, Channel*> _map;
+    std::vector<std::shared_ptr<Channel>> _activeChannels;
+    // std::vector<Channel*> _activeChannels;
+    int _quit = 0;
 };
 
 #endif // _EVENTLOOP_H

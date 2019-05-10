@@ -5,7 +5,6 @@
 #include "EventLoop.h"
 #include "Channel.h"
 #include "Buffer.h"
-#include "net.h"
 
 void Channel::changeEvent(void)
 {
@@ -35,39 +34,48 @@ void Channel::send(const char *s, size_t len)
 
 void Channel::handleEvent(void)
 {
+    // 写事件由loop自动负责
     if (_revents & POLLOUT) {
-        if (_writeCb) _writeCb(*this);
+        handleWrite();
     }
+    // 读事件由用户负责
     if (_revents & POLLIN) {
-        if (_readCb) _readCb(*this);
+        if (_readCb) _readCb();
     }
 }
 
-void Channel::handelRead(Channel& chl)
+void Channel::handleAccept(void)
 {
-    ssize_t n = chl._input.readFd(chl.fd());
+    int connfd = sockfd().accept();
+    Channel *chl = new Channel(_loop);
+    chl->sockfd().setSockfd(connfd);
+    chl->setReadCb(std::bind(&Channel::handelRead, this));
+    chl->setMessageCb(_messageCb);
+    _loop->addChannel(chl);
+    // _connectionCb() for Client
+}
+
+void Channel::handelRead(void)
+{
+    ssize_t n = _input.readFd(fd());
     if (n > 0) {
-        if (chl._messageCb)
-            chl._messageCb(chl);
+        if (_messageCb)
+            _messageCb(*this, _input, _req);
     } else if (n == 0) {
-        if (chl._closeCb)
-            chl._closeCb(chl);
-    } else {
-        if (chl._errorCb)
-            chl._errorCb(chl);
-    }
+        handleClose();
+    } else
+        handleError();
+
 }
 
-void Channel::handleWrite(Channel& chl)
+void Channel::handleWrite(void)
 {
-    if (chl.isWriting()) {
-        ssize_t n = write(chl.fd(), chl._output.peek(), chl._output.readable());
+    if (isWriting()) {
+        ssize_t n = write(fd(), _output.peek(), _output.readable());
         if (n >= 0) {
-            chl._output.retrieve(n);
-            if (chl._output.readable() == 0) {
-                chl.disableWrite();
-                // writeCompleteCb()
-            }
+            _output.retrieve(n);
+            if (_output.readable() == 0)
+                disableWrite();
         } else {
             // 对端已关闭连接
             if (errno == EPIPE)
@@ -80,24 +88,12 @@ void Channel::handleWrite(Channel& chl)
     }
 }
 
-void Channel::handleClose(Channel& chl)
+void Channel::handleClose(void)
 {
-    chl._loop->delChannel(&chl);
+    _loop->delChannel(this);
 }
 
-void Channel::handleError(Channel& chl)
+void Channel::handleError(void)
 {
 
-}
-
-void Channel::handleAccept(Channel& _chl)
-{
-    int connfd = acceptClient(_chl.fd());
-    Channel *chl = new Channel(_chl._loop, connfd);
-    chl->setReadCb(chl->handelRead);
-    chl->setWriteCb(chl->handleWrite);
-    chl->setMessageCb(_chl._messageCb);
-    chl->setCloseCb(chl->handleClose);
-    chl->setErrorCb(chl->handleError);
-    _chl._loop->addChannel(chl);
 }
