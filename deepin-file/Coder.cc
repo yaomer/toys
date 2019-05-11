@@ -111,7 +111,7 @@ std::string getPathname(Request& req)
 // SAVE OK\r\n
 void replySaveOk(Channel *chl)
 {
-    std::string s("SAVE OK\r\n");
+    std::string s("SAVE OK\r\n\r\n");
     chl->send(s.c_str(), s.size());
 }
 

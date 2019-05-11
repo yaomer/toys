@@ -16,11 +16,12 @@ int main(void)
 {
     EventLoop loop;
     Channel *chl = new Channel(&loop);
-    // chl->sockfd().setPort(8080);
-    // chl->sockfd().listen();
+    chl->socket().setPort(8888);
+    chl->socket().listen();
+    std::cout << "Server is listening port 8888" << std::endl;
     // e.g. 监听stdin
-    chl->socket().setFd(0);
-    chl->setReadCb(std::bind(&Channel::handelRead, chl));
+    // chl->socket().setFd(0);
+    chl->setReadCb(std::bind(&Channel::handleAccept, chl));
     chl->setMessageCb(std::bind(&onPrint,
                 std::placeholders::_1,
                 std::placeholders::_2,

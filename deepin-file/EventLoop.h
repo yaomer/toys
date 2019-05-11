@@ -15,7 +15,6 @@ public:
     {
         chl->enableRead();
         _epoll.add(chl->fd(), chl->events());
-        // auto it = std::make_shared<Channel>(chl);
         _channelMap.insert(std::pair<int,
                 std::shared_ptr<Channel>>(chl->fd(), chl));
     }

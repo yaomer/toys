@@ -47,6 +47,7 @@ void Channel::handleEvent(void)
 void Channel::handleAccept(void)
 {
     int connfd = socket().accept();
+    std::cout << connfd << " is connected" << std::endl;
     Channel *chl = new Channel(_loop);
     chl->socket().setFd(connfd);
     chl->setReadCb(std::bind(&Channel::handelRead, this));
