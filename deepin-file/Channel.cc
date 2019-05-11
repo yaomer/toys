@@ -46,9 +46,9 @@ void Channel::handleEvent(void)
 
 void Channel::handleAccept(void)
 {
-    int connfd = sockfd().accept();
+    int connfd = socket().accept();
     Channel *chl = new Channel(_loop);
-    chl->sockfd().setSockfd(connfd);
+    chl->socket().setFd(connfd);
     chl->setReadCb(std::bind(&Channel::handelRead, this));
     chl->setMessageCb(_messageCb);
     _loop->addChannel(chl);
@@ -60,7 +60,7 @@ void Channel::handelRead(void)
     ssize_t n = _input.readFd(fd());
     if (n > 0) {
         if (_messageCb)
-            _messageCb(*this, _input, _req);
+            _messageCb(shared_from_this(), _input, _req);
     } else if (n == 0) {
         handleClose();
     } else
@@ -91,6 +91,7 @@ void Channel::handleWrite(void)
 void Channel::handleClose(void)
 {
     _loop->delChannel(this);
+    // register _writeCompleteCb
 }
 
 void Channel::handleError(void)

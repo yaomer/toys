@@ -4,11 +4,13 @@
 #include "Buffer.h"
 #include "Socket.h"
 
-void onPrint(Channel& chl, Buffer& buf, Request& req)
+void onPrint(std::shared_ptr<Channel> chl, Buffer& buf, Request& req)
 {
     std::cout << buf.c_str();
     buf.retrieveAll();
 }
+
+void onMessage(std::shared_ptr<Channel> chl, Buffer& buf, Request& req);
 
 int main(void)
 {
@@ -17,7 +19,7 @@ int main(void)
     // chl->sockfd().setPort(8080);
     // chl->sockfd().listen();
     // e.g. 监听stdin
-    chl->sockfd().setSockfd(0);
+    chl->socket().setFd(0);
     chl->setReadCb(std::bind(&Channel::handelRead, chl));
     chl->setMessageCb(std::bind(&onPrint,
                 std::placeholders::_1,

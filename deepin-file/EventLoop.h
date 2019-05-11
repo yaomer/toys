@@ -15,6 +15,7 @@ public:
     {
         chl->enableRead();
         _epoll.add(chl->fd(), chl->events());
+        // auto it = std::make_shared<Channel>(chl);
         _channelMap.insert(std::pair<int,
                 std::shared_ptr<Channel>>(chl->fd(), chl));
     }
@@ -38,22 +39,7 @@ public:
     { 
         _activeChannels.push_back(chl); 
     }
-    void run() 
-    {  
-        while (!_quit) {
-            int nevents = _epoll.wait(this, -1);
-            if (nevents > 0) {
-                auto end = _activeChannels.end();
-                for (auto x = _activeChannels.begin(); x != end; x++)
-                    (*x).get()->handleEvent();
-                    // (*x)->handleEvent();
-                _activeChannels.clear();
-            } else if (nevents == 0)
-                ; // timer
-            else
-                ; // error
-        }
-    }
+    void run();
     void quit() { _quit = 1; }
 private:
     Epoll _epoll;

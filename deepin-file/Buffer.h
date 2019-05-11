@@ -22,6 +22,7 @@ public:
         _buf.insert(_buf.begin() + _writeindex, data, data + len);
         _writeindex += len;
     }
+    // 返回C风格字符串
     char *c_str() { append("\0", 1); return peek(); }
     // 内部腾挪
     void makeSpace(size_t len)

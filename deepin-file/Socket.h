@@ -9,13 +9,14 @@ class Socket : Noncopyable {
 public:
     Socket() {  }
     ~Socket() { close(_sockfd); }
-    int sockfd() { return _sockfd; } 
-    void setSockfd(int fd) { _sockfd = fd; }
+    int fd() { return _sockfd; } 
+    void setFd(int fd) { _sockfd = fd; }
     void setPort(int port) { _port = port; }
     void setNonblock();
     void setReuseAddr();
     void setNodelay();
     void listen();
+    // void connect();
     int accept();
 private:
     int _sockfd = -1;

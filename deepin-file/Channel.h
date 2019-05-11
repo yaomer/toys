@@ -10,18 +10,20 @@
 class EventLoop;
 
 // 不可拷贝的
-class Channel : Noncopyable {
+class Channel : Noncopyable, 
+    public std::enable_shared_from_this<Channel>  {
 public:
-    typedef std::function<void(Channel&, Buffer&, Request&)> MessageCallback;
+    typedef std::function<void(std::shared_ptr<Channel>, Buffer&, 
+            Request&)> MessageCallback;
     typedef std::function<void()> ReadCallback;
     explicit Channel(EventLoop *loop) : _loop(loop) {  }
     ~Channel() {  }
-    int fd() { return _fd.sockfd(); }
-    Socket& sockfd() { return _fd; }
+    int fd() { return _socket.fd(); }
+    Socket& socket() { return _socket; }
     int events() { return _events; }
     void setRevents(int revents) { _revents = revents; }
-    int isReading() { return _revents & POLLIN; }
-    int isWriting() { return _revents & POLLOUT; }
+    int isReading() { return _events & POLLIN; }
+    int isWriting() { return _events & POLLOUT; }
     void enableRead() { _events |= POLLIN; }
     void enableWrite() { _events |= POLLOUT; changeEvent(); }
     void disableWrite() { _events &= ~POLLOUT; changeEvent(); }
@@ -37,7 +39,7 @@ public:
     void handleAccept();
 private:
     EventLoop *_loop;
-    Socket _fd;
+    Socket _socket;
     int _events = 0;
     int _revents = 0;
     Buffer _input;
