@@ -108,22 +108,26 @@ std::string getPathname(Request& req)
     return pathname;
 }
 
-// SAVE OK\r\n
+// SAVE-OK\r\n
+// filesize: 0\r\n
+// \r\n
 void replySaveOk(Channel *chl)
 {
-    std::string s("SAVE OK\r\n\r\n");
+    std::string s("SAVE-OK\r\n");
+    s += "filesize: 0\r\n";
+    s += "\r\n";
     chl->send(s.c_str(), s.size());
 }
 
-// GET OK path\r\n
+// GET-OK path\r\n
 // filesize: size\r\n
 // \r\n
 // Text
 void replyGetOk(Channel *chl, Request& req)
 {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%zu", req._filesize);
-    std::string s("GET OK ");
+    snprintf(buf, sizeof(buf), "%zu\r\n", req._filesize);
+    std::string s("GET-OK ");
     s += req._path;
     s += "\r\n";
     s += "filesize: ";
@@ -137,16 +141,14 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
     pathname += req._macAddr + req._path;
-    if (req._fd < 0) {
+    if (req._fd < 0)
         req._fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0666);
-        req._remainFilesize = req._filesize;
-    }
     size_t n = buf.readable();
-    if (n > req._remainFilesize) {
-        n = req._remainFilesize;
+    if (n > req._filesize) {
+        n = req._filesize;
         req._state = Request::LINE;
     } else
-        req._remainFilesize -= n;
+        req._filesize -= n;
     write(req._fd, buf.peek(), n);
     buf.retrieve(n);
     if (req._state == Request::LINE) {

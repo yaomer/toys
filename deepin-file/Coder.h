@@ -19,8 +19,6 @@ struct Request {
     int _state = LINE;
     int _fd = -1;
     size_t _filesize = 0;
-    // SAVE 剩余可读的文件
-    size_t _remainFilesize = 0;
     std::string _type;
     std::string _path;
     std::string _macAddr;
