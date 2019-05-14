@@ -3,8 +3,10 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include "Epoll.h"
 #include "Channel.h"
+#include "Timer.h"
 #include "Noncopyable.h"
 
 // 不可拷贝的
@@ -38,14 +40,20 @@ public:
     { 
         _activeChannels.push_back(chl); 
     }
+    void handleRead();
+    // 唤醒loop
+    void wakeUp();
+    void runAfter(int64_t timeout, TimerCallback _cb);
+    void runEvery(int64_t interval, TimerCallback _cb);
     void run();
     void quit() { _quit = 1; }
 private:
     Epoll _epoll;
     std::map<int, std::shared_ptr<Channel>> _channelMap;
-    // std::map<int, Channel*> _map;
     std::vector<std::shared_ptr<Channel>> _activeChannels;
-    // std::vector<Channel*> _activeChannels;
+    Timer _timer;
+    // std::unique_ptr<Timer> _timer;
+    int _wakeFd[2];
     int _quit = 0;
 };
 

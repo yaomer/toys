@@ -48,14 +48,14 @@ void parseLine(Request& req, Buffer& buf, int len)
 
     skipSpace(p, ep);
     while (p < ep && !isspace(*p))
-        req._type.push_back(*p);
+        req.type().push_back(*p);
     skipSpace(p, ep);
     while (p < ep && !isspace(*p))
-        req._path.push_back(*p);
+        req.path().push_back(*p);
     skipSpace(p, ep);
     while (p < ep && !isspace(*p))
-        req._macAddr.push_back(*p);
-    req._state = Request::HEADER;
+        req.mac().push_back(*p);
+    req.setState(Request::HEADER);
 }
 
 void parseHeader(Request& req, Buffer& buf, int len)
@@ -64,15 +64,15 @@ void parseHeader(Request& req, Buffer& buf, int len)
     char *ep = p + len;
 
     if (strcmp(p, "\r\n") == 0) {
-        if (req._type == "SAVE")
-            req._state = Request::OK | Request::RECVING;
-        else if (req._type == "GET")
-            req._state = Request::OK;
+        if (req.type() == "SAVE")
+            req.setState(Request::OK | Request::RECVING);
+        else if (req.type() == "GET")
+            req.setState(Request::OK);
     }
     if (strncasecmp(p, "filesize:", 9) == 0) {
         p += 9;
         skipSpace(p, ep);
-        req._filesize = atoi(p);
+        req.setFilesize(atoi(p));
     } else {
         ; // 目前头部只有一个字段
     }
@@ -87,10 +87,10 @@ void parseRequest(Buffer& buf, Request& req)
         std::cout << crlf << std::endl;
         // 至少有一行请求
         if (crlf >= 0) {
-            if (req._state == Request::LINE) {
+            if (req.state() == Request::LINE) {
                 parseLine(req, buf, crlf);
                 crlf += 2;
-            } else if (req._state == Request::HEADER) {
+            } else if (req.state() == Request::HEADER) {
                 parseHeader(req, buf, crlf);
                 crlf += 2;
             } else
@@ -104,7 +104,7 @@ void parseRequest(Buffer& buf, Request& req)
 std::string getPathname(Request& req)
 {
     std::string pathname("./");
-    pathname += req._macAddr + req._path;
+    pathname += req.mac() + req.path();
     return pathname;
 }
 
@@ -126,9 +126,9 @@ void replySaveOk(Channel *chl)
 void replyGetOk(Channel *chl, Request& req)
 {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%zu\r\n", req._filesize);
+    snprintf(buf, sizeof(buf), "%zu\r\n", req.filesize());
     std::string s("GET-OK ");
-    s += req._path;
+    s += req.path();
     s += "\r\n";
     s += "filesize: ";
     s += buf;
@@ -140,21 +140,23 @@ void replyGetOk(Channel *chl, Request& req)
 void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
-    pathname += req._macAddr + req._path;
-    if (req._fd < 0)
-        req._fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0666);
+    pathname += req.mac() + req.path();
+    if (req.fd() < 0) {
+        int fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0666);
+        req.setFd(fd);
+    }
     size_t n = buf.readable();
-    if (n > req._filesize) {
-        n = req._filesize;
-        req._state = Request::LINE;
+    if (n > req.filesize()) {
+        n = req.filesize();
+        req.setState(Request::LINE);
     } else
-        req._filesize -= n;
-    write(req._fd, buf.peek(), n);
+        req.setFilesize(req.filesize() - n);
+    write(req.fd(), buf.peek(), n);
     buf.retrieve(n);
-    if (req._state == Request::LINE) {
+    if (req.state() == Request::LINE) {
         replySaveOk(chl);
-        close(req._fd);
-        req._fd = -1;
+        close(req.fd());
+        req.setFd(-1);
     }
 }
 
@@ -174,9 +176,9 @@ void sendFile(Channel *chl, Request& req)
 // 向客户回复响应信息
 void replyResponse(Channel *chl, Buffer& buf, Request& req)
 {
-    if (req._type == "SAVE") {
+    if (req.type() == "SAVE") {
         recvFile(chl, buf, req);
-    } else if (req._type == "GET") {
+    } else if (req.type() == "GET") {
         replyGetOk(chl, req);
         sendFile(chl, req);
     }
@@ -185,18 +187,19 @@ void replyResponse(Channel *chl, Buffer& buf, Request& req)
 
 void printInfo(Request& req)
 {
-    std::cout << "TYPE:     " << req._type
-              << "PATH:     " << req._path
-              << "MAC:      " << req._macAddr
-              << "FILESIZE: " << req._filesize
+    std::cout << "TYPE:     " << req.type()
+              << "PATH:     " << req.path()
+              << "MAC:      " << req.mac()
+              << "FILESIZE: " << req.filesize()
               << std::endl;
 }
 
-void onMessage(std::shared_ptr<Channel> chl, Buffer& buf, Request& req)
+void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
 {
     std::cout << buf.c_str();
     Channel *chlptr = chl.get();
-    if (req._state & Request::RECVING) {
+    Request& req = chl->req();
+    if (req.state() & Request::RECVING) {
         // 继续接收剩余的文件
         recvFile(chlptr, buf, req);
         return;
@@ -204,9 +207,9 @@ void onMessage(std::shared_ptr<Channel> chl, Buffer& buf, Request& req)
         // 解析新到来的请求
         parseRequest(buf, req);
     }
-    if (req._state & Request::OK) {
+    if (req.state() & Request::OK) {
         printInfo(req);
-        fileMkdir(req._path.c_str(), req._macAddr.c_str());
+        fileMkdir(req.path().c_str(), req.mac().c_str());
         replyResponse(chlptr, buf, req);
     }
 }

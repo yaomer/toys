@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/poll.h>
 #include <errno.h>
+#include <functional>
 #include "EventLoop.h"
 #include "Channel.h"
 #include "Buffer.h"
@@ -13,6 +14,7 @@ void Channel::changeEvent(void)
 
 void Channel::send(const char *s, size_t len)
 {
+    setStatus(Channel::SENDING);
     if (!isWriting() && _output.readable() == 0) {
         ssize_t n = write(fd(), s, len);
         if (n > 0) {
@@ -20,7 +22,9 @@ void Channel::send(const char *s, size_t len)
                 _output.append(s + n, len - n);
                 enableWrite();
             } else {
-                ; // writeCompleteCb;
+                clearStatus(Channel::SENDING);
+                if (_writeCompleteCb)
+                    _writeCompleteCb();
             }
         } else {
             if (errno != EAGAIN
@@ -50,18 +54,18 @@ void Channel::handleAccept(void)
     std::cout << connfd << " is connected" << std::endl;
     Channel *chl = new Channel(_loop);
     chl->socket().setFd(connfd);
-    chl->setReadCb(std::bind(&Channel::handelRead, this));
+    chl->setReadCb(std::bind(&Channel::handleRead, this));
     chl->setMessageCb(_messageCb);
     _loop->addChannel(chl);
     // _connectionCb() for Client
 }
 
-void Channel::handelRead(void)
+void Channel::handleRead(void)
 {
     ssize_t n = _input.readFd(fd());
     if (n > 0) {
         if (_messageCb)
-            _messageCb(shared_from_this(), _input, _req);
+            _messageCb(shared_from_this(), _input);
     } else if (n == 0) {
         handleClose();
     } else
@@ -75,8 +79,12 @@ void Channel::handleWrite(void)
         ssize_t n = write(fd(), _output.peek(), _output.readable());
         if (n >= 0) {
             _output.retrieve(n);
-            if (_output.readable() == 0)
+            if (_output.readable() == 0) {
+                clearStatus(Channel::SENDING);
                 disableWrite();
+                if (_writeCompleteCb)
+                    _writeCompleteCb();
+            }
         } else {
             // 对端已关闭连接
             if (errno == EPIPE)
@@ -91,8 +99,11 @@ void Channel::handleWrite(void)
 
 void Channel::handleClose(void)
 {
-    _loop->delChannel(this);
-    // register _writeCompleteCb
+    if (_status == Channel::SENDING) {
+        // 消息发送完后再关闭连接
+        setWriteCompleteCb(std::bind(&EventLoop::delChannel, _loop, this));
+    } else
+        _loop->delChannel(this);
 }
 
 void Channel::handleError(void)
