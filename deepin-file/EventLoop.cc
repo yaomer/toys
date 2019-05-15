@@ -2,19 +2,24 @@
 #include <functional>
 #include "EventLoop.h"
 #include "Channel.h"
-#include "Epoll.h"
+#include "Poller.h"
 #include "Timer.h"
 
-void EventLoop::run(void)
+void EventLoop::addWakeChannel(void)
 {
     socketpair(AF_LOCAL, SOCK_STREAM, 0, _wakeFd);
     Channel *chl = new Channel(this);
     chl->socket().setFd(_wakeFd[0]);
     chl->setReadCb(std::bind(&EventLoop::handleRead, this));
     addChannel(chl);
+}
+
+void EventLoop::run(void)
+{
+    addWakeChannel();
 
     while (!_quit) {
-        int nevents = _epoll.wait(this, _timer.timeout());
+        int nevents = _poller->wait(this, _timer.timeout());
         if (nevents > 0) {
             for (auto& it : _activeChannels)
                 it.get()->handleEvent();

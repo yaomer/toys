@@ -108,5 +108,6 @@ void Channel::handleClose(void)
 
 void Channel::handleError(void)
 {
-
+    std::cout << "fd = " << fd() << " error: "
+              << strerror(errno) << std::endl;
 }

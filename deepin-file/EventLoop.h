@@ -4,7 +4,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include "Epoll.h"
+#include "Poller.h"
 #include "Channel.h"
 #include "Timer.h"
 #include "Noncopyable.h"
@@ -12,23 +12,30 @@
 // 不可拷贝的
 class EventLoop : Noncopyable {
 public:
+    explicit EventLoop(Poller *poller) 
+        : _poller(poller), _quit(0) 
+    { 
+        _wakeFd[0] = -1;
+        _wakeFd[1] = -1;
+    }
+    ~EventLoop() {  }
     // 向loop中添加一个新的Channel
     void addChannel(Channel *chl)
     {
         chl->enableRead();
-        _epoll.add(chl->fd(), chl->events());
+        _poller->add(chl->fd(), chl->events());
         _channelMap.insert(std::pair<int,
                 std::shared_ptr<Channel>>(chl->fd(), chl));
     }
     // 从loop中移除一个Channel
     void delChannel(Channel *chl)
     {
-        _epoll.del(chl->fd());
+        _poller->del(chl->fd());
         _channelMap.erase(chl->fd());
     }
     void changeEvent(int fd, int events) 
     { 
-        _epoll.change(fd, events); 
+        _poller->change(fd, events);
     }
     std::shared_ptr<Channel> search(int fd)
     {
@@ -41,6 +48,7 @@ public:
         _activeChannels.push_back(chl); 
     }
     void handleRead();
+    void addWakeChannel();
     // 唤醒loop
     void wakeUp();
     void runAfter(int64_t timeout, TimerCallback _cb);
@@ -48,13 +56,12 @@ public:
     void run();
     void quit() { _quit = 1; }
 private:
-    Epoll _epoll;
+    Poller *_poller;
     std::map<int, std::shared_ptr<Channel>> _channelMap;
     std::vector<std::shared_ptr<Channel>> _activeChannels;
     Timer _timer;
-    // std::unique_ptr<Timer> _timer;
     int _wakeFd[2];
-    int _quit = 0;
+    int _quit;
 };
 
 #endif // _EVENTLOOP_H

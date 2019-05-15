@@ -1,13 +1,13 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <iostream>
 #include <string>
+#include <memory>
 #include "Channel.h"
 #include "Buffer.h"
 #include "Coder.h"
@@ -84,7 +84,6 @@ void parseRequest(Buffer& buf, Request& req)
     // 可能有一行完整的消息
     while (buf.readable() >= 2) {
         int crlf = buf.findCrlf();
-        std::cout << crlf << std::endl;
         // 至少有一行请求
         if (crlf >= 0) {
             if (req.state() == Request::LINE) {
@@ -146,7 +145,7 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         req.setFd(fd);
     }
     size_t n = buf.readable();
-    if (n > req.filesize()) {
+    if (n >= req.filesize()) {
         n = req.filesize();
         req.setState(Request::LINE);
     } else
@@ -196,7 +195,8 @@ void printInfo(Request& req)
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
 {
-    std::cout << buf.c_str();
+    std::cout << "read " << buf.readable() << std::endl
+              << buf.c_str();
     Channel *chlptr = chl.get();
     Request& req = chl->req();
     if (req.state() & Request::RECVING) {

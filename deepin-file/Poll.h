@@ -1,16 +1,17 @@
-#ifndef _EPOLL_H
-#define _EPOLL_H
+#ifndef _POLL_H
+#define _POLL_H
 
 #include <sys/poll.h>
 #include <unistd.h>
 #include <vector>
 #include <map>
 #include "Noncopyable.h"
+#include "Poller.h"
 
 class EventLoop;
 
 // 不可拷贝的
-class Epoll : Noncopyable {
+class Poll : public Poller, Noncopyable {
 public:
     // 事件多路分发器
     int wait(EventLoop *loop, int64_t timeout);
@@ -48,4 +49,4 @@ private:
     std::map<int, int> _indexs;
 };
 
-#endif // _EPOLL_H
+#endif // _POLL_H
