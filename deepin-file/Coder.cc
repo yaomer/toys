@@ -35,26 +35,26 @@ void fileMkdir(const char *pathname, const char *mac)
     }
 }
 
-void skipSpace(char *p, char *ep)
-{
-    while (p < ep && (*p == ' ' || *p == '\t'))
-        p++;
-}
-
 void parseLine(Request& req, Buffer& buf, int len)
 {
     char *p = buf.peek();
     char *ep = p + len;
 
-    skipSpace(p, ep);
+    req.type().clear();
+    req.path().clear();
+    req.mac().clear();
+    while (p < ep && (*p == ' ' || *p == '\t'))
+        p++;
     while (p < ep && !isspace(*p))
-        req.type().push_back(*p);
-    skipSpace(p, ep);
+        req.type().push_back(*p++);
+    while (p < ep && (*p == ' ' || *p == '\t'))
+        p++;
     while (p < ep && !isspace(*p))
-        req.path().push_back(*p);
-    skipSpace(p, ep);
+        req.path().push_back(*p++);
+    while (p < ep && (*p == ' ' || *p == '\t'))
+        p++;
     while (p < ep && !isspace(*p))
-        req.mac().push_back(*p);
+        req.mac().push_back(*p++);
     req.setState(Request::HEADER);
 }
 
@@ -63,16 +63,21 @@ void parseHeader(Request& req, Buffer& buf, int len)
     char *p = buf.peek();
     char *ep = p + len;
 
-    if (strcmp(p, "\r\n") == 0) {
+    if (strncmp(p, "\r\n", 2) == 0) {
+        // std::cout << "parse success" << std::endl;
         if (req.type() == "SAVE")
             req.setState(Request::OK | Request::RECVING);
         else if (req.type() == "GET")
             req.setState(Request::OK);
+        return;
     }
     if (strncasecmp(p, "filesize:", 9) == 0) {
         p += 9;
-        skipSpace(p, ep);
+        while (p < ep && (*p == ' ' || *p == '\t'))
+            p++;
         req.setFilesize(atoi(p));
+        while (p < ep && isalnum(*p))
+            p++;
     } else {
         ; // 目前头部只有一个字段
     }
@@ -102,7 +107,7 @@ void parseRequest(Buffer& buf, Request& req)
 
 std::string getPathname(Request& req)
 {
-    std::string pathname("./");
+    std::string pathname("./backupfile/");
     pathname += req.mac() + req.path();
     return pathname;
 }
@@ -112,7 +117,7 @@ std::string getPathname(Request& req)
 // \r\n
 void replySaveOk(Channel *chl)
 {
-    std::string s("SAVE-OK\r\n");
+    std::string s("SAVE-STATUS\r\n");
     s += "filesize: 0\r\n";
     s += "\r\n";
     chl->send(s.c_str(), s.size());
@@ -125,8 +130,10 @@ void replySaveOk(Channel *chl)
 void replyGetOk(Channel *chl, Request& req)
 {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%zu\r\n", req.filesize());
-    std::string s("GET-OK ");
+    struct stat st;
+    lstat(getPathname(req).c_str(), &st);
+    snprintf(buf, sizeof(buf), "%lld\r\n", st.st_size);
+    std::string s("GET-STATUS ");
     s += req.path();
     s += "\r\n";
     s += "filesize: ";
@@ -139,7 +146,6 @@ void replyGetOk(Channel *chl, Request& req)
 void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
-    pathname += req.mac() + req.path();
     if (req.fd() < 0) {
         int fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0666);
         req.setFd(fd);
@@ -152,10 +158,13 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         req.setFilesize(req.filesize() - n);
     write(req.fd(), buf.peek(), n);
     buf.retrieve(n);
+    // std::cout << buf.c_str() << "status " << req.state() << std::endl;
     if (req.state() == Request::LINE) {
         replySaveOk(chl);
         close(req.fd());
         req.setFd(-1);
+        if (buf.readable() > 0)
+            req.setState(req.state() | Request::CONTINUE);
     }
 }
 
@@ -181,22 +190,18 @@ void replyResponse(Channel *chl, Buffer& buf, Request& req)
         replyGetOk(chl, req);
         sendFile(chl, req);
     }
-
 }
 
 void printInfo(Request& req)
 {
-    std::cout << "TYPE:     " << req.type()
-              << "PATH:     " << req.path()
-              << "MAC:      " << req.mac()
-              << "FILESIZE: " << req.filesize()
-              << std::endl;
+    std::cout << "TYPE:     " << req.type() << std::endl
+              << "PATH:     " << req.path() << std::endl
+              << "MAC:      " << req.mac()  << std::endl
+              << "FILESIZE: " << req.filesize() << std::endl;
 }
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
 {
-    std::cout << "read " << buf.readable() << std::endl
-              << buf.c_str();
     Channel *chlptr = chl.get();
     Request& req = chl->req();
     if (req.state() & Request::RECVING) {
@@ -205,11 +210,16 @@ void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
         return;
     } else {
         // 解析新到来的请求
+_next:
         parseRequest(buf, req);
     }
     if (req.state() & Request::OK) {
-        printInfo(req);
+        // printInfo(req);
         fileMkdir(req.path().c_str(), req.mac().c_str());
         replyResponse(chlptr, buf, req);
+        if (req.state() & Request::CONTINUE) {
+            req.setState(req.state() & ~Request::CONTINUE);
+            goto _next;
+        }
     }
 }

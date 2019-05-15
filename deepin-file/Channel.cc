@@ -54,7 +54,7 @@ void Channel::handleAccept(void)
     std::cout << connfd << " is connected" << std::endl;
     Channel *chl = new Channel(_loop);
     chl->socket().setFd(connfd);
-    chl->setReadCb(std::bind(&Channel::handleRead, this));
+    chl->setReadCb(std::bind(&Channel::handleRead, chl));
     chl->setMessageCb(_messageCb);
     _loop->addChannel(chl);
     // _connectionCb() for Client
@@ -110,4 +110,5 @@ void Channel::handleError(void)
 {
     std::cout << "fd = " << fd() << " error: "
               << strerror(errno) << std::endl;
+    handleClose();
 }

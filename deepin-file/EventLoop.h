@@ -30,6 +30,7 @@ public:
     // 从loop中移除一个Channel
     void delChannel(Channel *chl)
     {
+        std::cout << chl->fd() << " is closed" << std::endl; 
         _poller->del(chl->fd());
         _channelMap.erase(chl->fd());
     }
