@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
@@ -10,15 +11,14 @@
 
 Logger *_log = nullptr;
 
-Logger::Logger(EventLoop *loop)
-    : _loop(loop), _quit(0)
+Logger::Logger()
 {
+    _quit = 0;
     pthread_mutex_init(&_mutex, NULL);
     pthread_cond_init(&_cond, NULL);
     mkdir(".log", 0777);
     // 泄漏了this指针
     pthread_create(&_tid, NULL, flushToFile, this);
-    _loop->runEvery(1000 * 3, std::bind(&Logger::wakeUp, this));
 }
 
 Logger::~Logger()
@@ -57,6 +57,7 @@ void *Logger::flushToFile(void *arg)
         while (!_l->_quit && _l->_flushBuf.readable() == 0)
             pthread_cond_wait(&_l->_cond, &_l->_mutex);
         if (_l->_quit) {
+            std::cout << "exit" << std::endl;
             write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
             pthread_mutex_unlock(&_l->_mutex);
             pthread_exit(NULL);
@@ -67,15 +68,21 @@ void *Logger::flushToFile(void *arg)
     }
 }
 
-void Logger::output(const char *level, const char *_FILE_,
-        int _LINE_, const char *_func_, const char *fmt, ...)
+void Logger::output(int level, const char *_FILE_, int _LINE_,
+        const char *_func_, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
 
     std::string str;
     char buf[1024];
-    str += level;
+    str += levelstr(level);
+    if (level == DEBUG)
+        str += ": ";
+    else if (level == WARN)
+        str += ":  ";
+    else if (level == ERROR)
+        str += ": ";
     str += Timer::timestr(Timer::now(), buf, sizeof(buf));
     str += " ";
     str += _FILE_;
@@ -92,4 +99,8 @@ void Logger::output(const char *level, const char *_FILE_,
     str += "\n";
     writeToBuffer(str.c_str(), str.size());
     va_end(ap);
+    if (level == ERROR) {
+        fprintf(stderr, "logError");
+        exit(1);
+    }
 }

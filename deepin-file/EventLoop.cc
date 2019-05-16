@@ -1,4 +1,6 @@
+#include <cstring>
 #include <sys/socket.h>
+#include <errno.h>
 #include <functional>
 #include "EventLoop.h"
 #include "Channel.h"
@@ -17,6 +19,8 @@ void EventLoop::addWakeChannel(void)
 void EventLoop::run(void)
 {
     addWakeChannel();
+    // 每隔 3s flush一次日志
+    runEvery(1000 * 3, std::bind(&Logger::wakeUp, _log));
 
     while (!_quit) {
         int nevents = _poller->wait(this, _timer.timeout());
@@ -28,20 +32,24 @@ void EventLoop::run(void)
         } else if (nevents == 0)
             _timer.tick();
         else
-            ; // error
+            logDebug("_poller->wait error: %s", strerror(errno));
     }
 }
 
 void EventLoop::wakeUp(void)
 {
     uint64_t one = 1;
-    write(_wakeFd[1], &one, sizeof(one));
+    ssize_t n = write(_wakeFd[1], &one, sizeof(one));
+    if (n != sizeof(one))
+        logDebug("write %zd bytes instead of 8");
 }
 
 void EventLoop::handleRead(void)
 {
     uint64_t one;
-    read(_wakeFd[0], &one, sizeof(one));
+    ssize_t n = read(_wakeFd[0], &one, sizeof(one));
+    if (n != sizeof(one))
+        logDebug("write %zd bytes instead of 8");
 }
 
 void EventLoop::runAfter(int64_t timeout, TimerCallback _cb)

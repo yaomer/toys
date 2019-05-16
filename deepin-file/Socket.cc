@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include "Socket.h"
+#include "Logger.h"
 
 void Socket::setNonblock(void)
 {
@@ -18,14 +19,14 @@ void Socket::setReuseAddr(void)
 {
     socklen_t on = 1;
     if (setsockopt(_sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
-        ;
+        logError("set SO_REUSEADDR failed: %s", strerror(errno));
 }
 
 void Socket::setNodelay(void)
 {
     socklen_t on = 1;
     if (setsockopt(_sockfd, SOL_SOCKET, TCP_NODELAY, &on, sizeof(on)) < 0)
-        ;
+        logError("set TCP_NODELAY failed: %s", strerror(errno));
 }
 
 void Socket::listen(void)
@@ -36,7 +37,7 @@ void Socket::listen(void)
     signal(SIGPIPE, SIG_IGN);
 
     if ((_sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        ;
+        logError("socket error: %s", strerror(errno));
 
     setNonblock();
     setReuseAddr();
@@ -48,9 +49,9 @@ void Socket::listen(void)
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(_sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-        ;
+        logError("bind error: %s", strerror(errno));
     if (::listen(_sockfd, LISTENQ) < 0)
-        ;
+        logError("listen error: %s", strerror(errno));
 }
 
 int Socket::accept(void)
@@ -67,7 +68,7 @@ _again:
         if (errno != EWOULDBLOCK /* BSD */
          && errno != EPROTO  /* SERV4 */
          && errno != ECONNABORTED)  /* POSIX */
-            ;
+            logError("accept error: %s", strerror(errno));
     }
     setNonblock();
     return connfd;
