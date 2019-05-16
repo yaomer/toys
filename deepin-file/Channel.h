@@ -37,6 +37,7 @@ public:
     Request& req() { return _req; }
     void setStatus(int status_) { _status |= status_; }
     void clearStatus(int status_) { _status &= ~status_; }
+    static const char *eventstr(int events);
     void setReadCb(const ReadCallback _cb) 
     { _readCb = _cb; }
     void setMessageCb(const MessageCallback _cb) 

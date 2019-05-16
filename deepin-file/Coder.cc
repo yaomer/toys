@@ -11,6 +11,7 @@
 #include "Channel.h"
 #include "Buffer.h"
 #include "Coder.h"
+#include "Logger.h"
 
 void fileMkdir(const char *pathname, const char *mac)
 {
@@ -121,6 +122,8 @@ void replySaveOk(Channel *chl)
     s += "filesize: 0\r\n";
     s += "\r\n";
     chl->send(s.c_str(), s.size());
+    logDebug("send %d bytes to fd(%d): %s", s.size(),
+            chl->fd(), s.c_str());
 }
 
 // GET-OK path\r\n
@@ -131,7 +134,11 @@ void replyGetOk(Channel *chl, Request& req)
 {
     char buf[32];
     struct stat st;
-    lstat(getPathname(req).c_str(), &st);
+    if (lstat(getPathname(req).c_str(), &st) < 0) {
+        logDebug("lstat %s error: %s", getPathname(req).c_str(),
+                strerror(errno));
+        return;
+    }
     snprintf(buf, sizeof(buf), "%lld\r\n", st.st_size);
     std::string s("GET-STATUS ");
     s += req.path();
@@ -140,6 +147,8 @@ void replyGetOk(Channel *chl, Request& req)
     s += buf;
     s += "\r\n";
     chl->send(s.c_str(), s.size());
+    logDebug("send %d bytes to fd(%d): %s", s.size(),
+            chl->fd(), s.c_str());
 }
 
 // 接收客户端发来的文件以更新本地文件
@@ -147,7 +156,11 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
     if (req.fd() < 0) {
-        int fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT, 0666);
+        int fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT | O_TRUNC, 0666);
+        if (fd < 0) {
+            logWarn("file(%s) can't open: %s", pathname.c_str(), strerror(errno));
+            return;
+        }
         req.setFd(fd);
     }
     size_t n = buf.readable();
@@ -158,7 +171,7 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         req.setFilesize(req.filesize() - n);
     write(req.fd(), buf.peek(), n);
     buf.retrieve(n);
-    // std::cout << buf.c_str() << "status " << req.state() << std::endl;
+    logDebug("write %zu bytes to file(%s)", n, pathname.c_str());
     if (req.state() == Request::LINE) {
         replySaveOk(chl);
         close(req.fd());
@@ -175,6 +188,8 @@ void sendFile(Channel *chl, Request& req)
     std::string pathname = getPathname(req);
     int fd = open(pathname.c_str(), O_RDONLY);
     while (buf.readFd(fd) > 0) {
+        logDebug("read %zu bytes from file(%s): %s", buf.readable(),
+                pathname.c_str(), buf.c_str());
         chl->send(buf.peek(), buf.readable());
         buf.retrieveAll();
     }
@@ -202,6 +217,8 @@ void printInfo(Request& req)
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
 {
+    // std::cout << buf.c_str();
+    // buf.retrieveAll();
     Channel *chlptr = chl.get();
     Request& req = chl->req();
     if (req.state() & Request::RECVING) {
@@ -214,7 +231,9 @@ _next:
         parseRequest(buf, req);
     }
     if (req.state() & Request::OK) {
-        // printInfo(req);
+        printInfo(req);
+        logDebug("recv packages from fd(%d), type: %s, path: %s, mac: %s, filesize: %zu",
+                chl->fd(), req.type().c_str(), req.path().c_str(), req.mac().c_str(), req.filesize());
         fileMkdir(req.path().c_str(), req.mac().c_str());
         replyResponse(chlptr, buf, req);
         if (req.state() & Request::CONTINUE) {

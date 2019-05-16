@@ -43,7 +43,7 @@ void Channel::send(const char *s, size_t len)
 
 void Channel::handleEvent(void)
 {
-    logDebug("fd(%d)'s revents is %d", fd(), _revents);
+    logDebug("fd(%d)'s revents is %s", fd(), eventstr(_revents));
     // 写事件由loop自动负责
     if (_revents & POLLOUT) {
         handleWrite();
@@ -117,4 +117,16 @@ void Channel::handleError(void)
 {
     logError("fd(%d): %s", strerror(errno));
     handleClose();
+}
+
+const char *Channel::eventstr(int events)
+{
+    if (events == POLLIN)
+        return "POLLIN";
+    else if (events == POLLOUT)
+        return "POLLOUT";
+    else if (events == (POLLIN | POLLOUT))
+        return "POLLIN | POLLOUT";
+    else
+        return "NONE";
 }
