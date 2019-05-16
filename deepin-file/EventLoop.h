@@ -1,6 +1,7 @@
 #ifndef _EVENTLOOP_H
 #define _EVENTLOOP_H
 
+#include <cassert>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -8,6 +9,7 @@
 #include "Channel.h"
 #include "Timer.h"
 #include "Noncopyable.h"
+#include "Logger.h"
 
 // 不可拷贝的
 class EventLoop : Noncopyable {
@@ -30,7 +32,7 @@ public:
     // 从loop中移除一个Channel
     void delChannel(Channel *chl)
     {
-        std::cout << chl->fd() << " is closed" << std::endl; 
+        logDebug("%d is closed", chl->fd());
         _poller->del(chl->fd());
         _channelMap.erase(chl->fd());
     }

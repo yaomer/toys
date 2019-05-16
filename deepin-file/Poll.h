@@ -1,6 +1,7 @@
 #ifndef _POLL_H
 #define _POLL_H
 
+#include <cassert>
 #include <sys/poll.h>
 #include <unistd.h>
 #include <vector>

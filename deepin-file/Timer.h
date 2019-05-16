@@ -35,6 +35,7 @@ public:
 class Timer : Noncopyable {
 public:
     static int64_t now();
+    static const char *timestr(int64_t ms, char *buf, size_t len);
     // 添加一个定时器
     void add(Timestamp *_t)
     {

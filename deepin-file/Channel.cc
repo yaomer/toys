@@ -3,9 +3,11 @@
 #include <sys/poll.h>
 #include <errno.h>
 #include <functional>
+#include <cstring>
 #include "EventLoop.h"
 #include "Channel.h"
 #include "Buffer.h"
+#include "Logger.h"
 
 void Channel::changeEvent(void)
 {
@@ -17,6 +19,7 @@ void Channel::send(const char *s, size_t len)
     setStatus(Channel::SENDING);
     if (!isWriting() && _output.readable() == 0) {
         ssize_t n = write(fd(), s, len);
+        logDebug("send %zu bytes to fd(%d)", n, fd());
         if (n > 0) {
             if (n < len) {
                 _output.append(s + n, len - n);
@@ -29,8 +32,10 @@ void Channel::send(const char *s, size_t len)
         } else {
             if (errno != EAGAIN
              && errno != EWOULDBLOCK
-             && errno != EINTR)
-                ;
+             && errno != EINTR) {
+                logWarn("%s", strerror(errno));
+                handleClose();
+            }
         }
     } else
         _output.append(s, len);
@@ -38,6 +43,7 @@ void Channel::send(const char *s, size_t len)
 
 void Channel::handleEvent(void)
 {
+    logDebug("fd(%d)'s revents is %d", fd(), _revents);
     // 写事件由loop自动负责
     if (_revents & POLLOUT) {
         handleWrite();
@@ -51,18 +57,19 @@ void Channel::handleEvent(void)
 void Channel::handleAccept(void)
 {
     int connfd = socket().accept();
-    std::cout << connfd << " is connected" << std::endl;
     Channel *chl = new Channel(_loop);
     chl->socket().setFd(connfd);
     chl->setReadCb(std::bind(&Channel::handleRead, chl));
     chl->setMessageCb(_messageCb);
     _loop->addChannel(chl);
+    logDebug("fd(%d) is connected", connfd);
     // _connectionCb() for Client
 }
 
 void Channel::handleRead(void)
 {
     ssize_t n = _input.readFd(fd());
+    logDebug("read %zu bytes from fd(%d)", n, fd());
     if (n > 0) {
         if (_messageCb)
             _messageCb(shared_from_this(), _input);
@@ -70,13 +77,13 @@ void Channel::handleRead(void)
         handleClose();
     } else
         handleError();
-
 }
 
 void Channel::handleWrite(void)
 {
     if (isWriting()) {
         ssize_t n = write(fd(), _output.peek(), _output.readable());
+        logDebug("send %zu bytes to fd(%d)", n, fd());
         if (n >= 0) {
             _output.retrieve(n);
             if (_output.readable() == 0) {
@@ -86,13 +93,13 @@ void Channel::handleWrite(void)
                     _writeCompleteCb();
             }
         } else {
-            // 对端已关闭连接
-            if (errno == EPIPE)
-                ; // close()
-            if (errno != EAGAIN
+            if (errno == EPIPE  // 对端已关闭连接
+            || (errno != EAGAIN
              && errno != EWOULDBLOCK
-             && errno != EINTR)
-                ;
+             && errno != EINTR)) {
+                logWarn("%s", strerror(errno));
+                handleClose();
+            }
         }
     }
 }
@@ -108,7 +115,6 @@ void Channel::handleClose(void)
 
 void Channel::handleError(void)
 {
-    std::cout << "fd = " << fd() << " error: "
-              << strerror(errno) << std::endl;
+    logError("fd(%d): %s", strerror(errno));
     handleClose();
 }

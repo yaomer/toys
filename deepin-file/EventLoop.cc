@@ -21,6 +21,7 @@ void EventLoop::run(void)
     while (!_quit) {
         int nevents = _poller->wait(this, _timer.timeout());
         if (nevents > 0) {
+            logDebug("active channels are %d", nevents);
             for (auto& it : _activeChannels)
                 it.get()->handleEvent();
             _activeChannels.clear();

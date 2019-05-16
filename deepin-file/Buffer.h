@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <sys/uio.h>
+#include <algorithm>
 
 class Buffer {
 public:
@@ -55,6 +56,12 @@ public:
     }
     void retrieveAll() { retrieve(readable()); }
     int readFd(int fd);
+    void swap(Buffer& _buffer)
+    {
+        _buf.swap(_buffer._buf);
+        std::swap(_readindex, _buffer._readindex);
+        std::swap(_writeindex, _buffer._writeindex);
+    }
 private:
     std::vector<char> _buf;
     size_t _readindex = 0;

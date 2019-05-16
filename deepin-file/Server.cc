@@ -6,6 +6,7 @@
 #include "Buffer.h"
 #include "Socket.h"
 #include "Poll.h"
+#include "Logger.h"
 
 void onPrint(std::shared_ptr<Channel> chl, Buffer& buf)
 {
@@ -24,6 +25,8 @@ int main(void)
 {
     Poll poll;
     EventLoop loop(&poll);
+    Logger logger(&loop);
+    _log = &logger;
     Channel *chl = new Channel(&loop);
     chl->socket().setPort(8888);
     chl->socket().listen();
@@ -33,6 +36,7 @@ int main(void)
                 std::placeholders::_1,
                 std::placeholders::_2));
     loop.addChannel(chl);
+    logDebug("Server is running");
 
     // e.g. 监听stdin
     // Channel *_in = new Channel(&loop);
