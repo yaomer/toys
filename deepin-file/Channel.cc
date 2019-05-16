@@ -17,6 +17,7 @@ void Channel::changeEvent(void)
 void Channel::send(const char *s, size_t len)
 {
     setStatus(Channel::SENDING);
+    logDebug("fd(%d) state is SENDING", fd());
     if (!isWriting() && _output.readable() == 0) {
         ssize_t n = write(fd(), s, len);
         logDebug("send %zu bytes to fd(%d)", n, fd());
@@ -26,6 +27,7 @@ void Channel::send(const char *s, size_t len)
                 enableWrite();
             } else {
                 clearStatus(Channel::SENDING);
+                logDebug("fd(%d) state SENDING is cleaned", fd());
                 if (_writeCompleteCb)
                     _writeCompleteCb();
             }
@@ -115,7 +117,7 @@ void Channel::handleClose(void)
 
 void Channel::handleError(void)
 {
-    logError("fd(%d): %s", strerror(errno));
+    logWarn("fd(%d): %s", strerror(errno));
     handleClose();
 }
 

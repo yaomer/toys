@@ -135,7 +135,7 @@ void replyGetOk(Channel *chl, Request& req)
     char buf[32];
     struct stat st;
     if (lstat(getPathname(req).c_str(), &st) < 0) {
-        logDebug("lstat %s error: %s", getPathname(req).c_str(),
+        logWarn("lstat %s error: %s", getPathname(req).c_str(),
                 strerror(errno));
         return;
     }
@@ -156,9 +156,11 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
     if (req.fd() < 0) {
-        int fd = open(pathname.c_str(), O_WRONLY | O_APPEND | O_CREAT | O_TRUNC, 0666);
+        int fd = open(pathname.c_str(), O_WRONLY | O_APPEND
+                | O_CREAT | O_TRUNC, 0666);
         if (fd < 0) {
-            logWarn("file(%s) can't open: %s", pathname.c_str(), strerror(errno));
+            logWarn("file(%s) can't open: %s", pathname.c_str(),
+                    strerror(errno));
             return;
         }
         req.setFd(fd);
@@ -188,8 +190,8 @@ void sendFile(Channel *chl, Request& req)
     std::string pathname = getPathname(req);
     int fd = open(pathname.c_str(), O_RDONLY);
     while (buf.readFd(fd) > 0) {
-        logDebug("read %zu bytes from file(%s): %s", buf.readable(),
-                pathname.c_str(), buf.c_str());
+        logDebug("read %zu bytes from file(%s)", buf.readable(),
+                pathname.c_str());
         chl->send(buf.peek(), buf.readable());
         buf.retrieveAll();
     }
@@ -227,18 +229,19 @@ void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
         return;
     } else {
         // 解析新到来的请求
-_next:
+_continue:
         parseRequest(buf, req);
     }
     if (req.state() & Request::OK) {
-        printInfo(req);
-        logDebug("recv packages from fd(%d), type: %s, path: %s, mac: %s, filesize: %zu",
-                chl->fd(), req.type().c_str(), req.path().c_str(), req.mac().c_str(), req.filesize());
+        // printInfo(req);
+        logDebug("recv request from fd(%d): type: %s, path: %s, mac: %s, filesize: %zu",
+                chl->fd(), req.type().c_str(), req.path().c_str(),
+                req.mac().c_str(), req.filesize());
         fileMkdir(req.path().c_str(), req.mac().c_str());
         replyResponse(chlptr, buf, req);
         if (req.state() & Request::CONTINUE) {
             req.setState(req.state() & ~Request::CONTINUE);
-            goto _next;
+            goto _continue;
         }
     }
 }

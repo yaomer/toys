@@ -1,10 +1,12 @@
-#include <cstdlib>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <iostream>
 #include <string>
+#include <cstdlib>
+#include <cstring>
+#include <cstdarg>
 #include "EventLoop.h"
 #include "Timer.h"
 #include "Logger.h"
@@ -13,6 +15,8 @@ Logger *_log = nullptr;
 
 Logger::Logger()
 {
+    if (_log)
+        logError("repeat creat logger");
     _quit = 0;
     pthread_mutex_init(&_mutex, NULL);
     pthread_cond_init(&_cond, NULL);
@@ -51,16 +55,16 @@ void Logger::wakeUp(void)
 void *Logger::flushToFile(void *arg)
 {
     Logger *_l = static_cast<Logger*>(arg);
+    // 为了方便测试查看，所以暂时只使用一个文件
     int fd = open("./.log/x.log", O_WRONLY | O_APPEND | O_CREAT, 0777);
     while (1) {
         pthread_mutex_lock(&_l->_mutex);
         while (!_l->_quit && _l->_flushBuf.readable() == 0)
             pthread_cond_wait(&_l->_cond, &_l->_mutex);
         if (_l->_quit) {
-            std::cout << "exit" << std::endl;
             write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
             pthread_mutex_unlock(&_l->_mutex);
-            pthread_exit(NULL);
+            exit(1);
         }
         write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
         _l->_flushBuf.retrieveAll();
@@ -69,13 +73,13 @@ void *Logger::flushToFile(void *arg)
 }
 
 void Logger::output(int level, const char *_FILE_, int _LINE_,
-        const char *_func_, const char *fmt, ...)
+        const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
 
     std::string str;
-    char buf[1024];
+    char buf[65536];
     str += levelstr(level);
     if (level == DEBUG)
         str += ": ";
@@ -87,20 +91,16 @@ void Logger::output(int level, const char *_FILE_, int _LINE_,
     str += " ";
     str += _FILE_;
     str += ": ";
-    bzero(buf, sizeof(buf));
     snprintf(buf, sizeof(buf), "%d", _LINE_);
     str += buf;
-    str += ": ";
-    str += _func_;
-    str += ": ";
-    bzero(buf, sizeof(buf));
+    str += ": [";
     vsnprintf(buf, sizeof(buf), fmt, ap);
     str += buf;
-    str += "\n";
+    str += "]\n";
     writeToBuffer(str.c_str(), str.size());
     va_end(ap);
     if (level == ERROR) {
-        fprintf(stderr, "logError");
-        exit(1);
+        fprintf(stderr, ">>logError\n");
+        quit();
     }
 }

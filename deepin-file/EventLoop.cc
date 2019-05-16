@@ -10,6 +10,8 @@
 void EventLoop::addWakeChannel(void)
 {
     socketpair(AF_LOCAL, SOCK_STREAM, 0, _wakeFd);
+    logDebug("wakeup read from fd(%d)", _wakeFd[0]);
+    logDebug("wakeup write to fd(%d)", _wakeFd[1]);
     Channel *chl = new Channel(this);
     chl->socket().setFd(_wakeFd[0]);
     chl->setReadCb(std::bind(&EventLoop::handleRead, this));
@@ -32,7 +34,7 @@ void EventLoop::run(void)
         } else if (nevents == 0)
             _timer.tick();
         else
-            logDebug("_poller->wait error: %s", strerror(errno));
+            logWarn("_poller->wait error: %s", strerror(errno));
     }
 }
 
@@ -41,7 +43,7 @@ void EventLoop::wakeUp(void)
     uint64_t one = 1;
     ssize_t n = write(_wakeFd[1], &one, sizeof(one));
     if (n != sizeof(one))
-        logDebug("write %zd bytes instead of 8");
+        logWarn("write %zd bytes instead of 8");
 }
 
 void EventLoop::handleRead(void)
@@ -49,7 +51,7 @@ void EventLoop::handleRead(void)
     uint64_t one;
     ssize_t n = read(_wakeFd[0], &one, sizeof(one));
     if (n != sizeof(one))
-        logDebug("write %zd bytes instead of 8");
+        logWarn("write %zd bytes instead of 8");
 }
 
 void EventLoop::runAfter(int64_t timeout, TimerCallback _cb)

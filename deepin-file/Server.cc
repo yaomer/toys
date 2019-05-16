@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <functional>
+#include <signal.h>
 #include "EventLoop.h"
 #include "Channel.h"
 #include "Buffer.h"
@@ -21,22 +22,30 @@ void printStr(const char *s)
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf);
 
+static void sig_int(int signo)
+{
+    _log->quit();
+    fprintf(stderr, "\n");
+}
+
 int main(void)
 {
+    signal(SIGINT,  sig_int);
     Logger logger;
     _log = &logger;
     Poll poll;
     EventLoop loop(&poll);
+    logDebug("Server is using Poll");
     Channel *chl = new Channel(&loop);
     chl->socket().setPort(8888);
     chl->socket().listen();
-    std::cout << "Server is listening port 8888" << std::endl;
+    logDebug("Server is listening port 8888");
+    logDebug("listenfd is %d", chl->socket().fd());
     chl->setReadCb(std::bind(&Channel::handleAccept, chl));
     chl->setMessageCb(std::bind(&onMessage,
                 std::placeholders::_1,
                 std::placeholders::_2));
     loop.addChannel(chl);
-
     // e.g. 监听stdin
     // Channel *_in = new Channel(&loop);
     // _in->socket().setFd(0);

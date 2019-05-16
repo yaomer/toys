@@ -17,7 +17,7 @@ public:
     };
     void wakeUp();
     void output(int level, const char *_FILE_, int _LINE_, 
-            const char *_func_, const char *fmt, ...);
+            const char *fmt, ...);
     const char *levelstr(int level)
     {
         if (level == DEBUG)
@@ -29,6 +29,7 @@ public:
         else
             return "NONE";
     }
+    void quit() { _quit = 1; wakeUp(); }
 private:
     void writeToBuffer(const char *s, size_t len);
     static void *flushToFile(void *arg);
@@ -43,10 +44,10 @@ private:
 extern Logger *_log;
 
 #define logDebug(...) \
-    _log->output(Logger::DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
+    _log->output(Logger::DEBUG, __FILE__, __LINE__, __VA_ARGS__)
 #define logWarn(...) \
-    _log->output(Logger::WARN, __FILE__, __LINE__, __func__, __VA_ARGS__)
+    _log->output(Logger::WARN, __FILE__, __LINE__, __VA_ARGS__)
 #define logError(...) \
-    _log->output(Logger::ERROR, __FILE__, __LINE__, __func__, __VA_ARGS__)
+    _log->output(Logger::ERROR, __FILE__, __LINE__, __VA_ARGS__)
 
 #endif // _LOGGER_H

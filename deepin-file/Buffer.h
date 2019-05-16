@@ -25,11 +25,7 @@ public:
     }
     // 返回C风格字符串
     char *c_str() 
-    { 
-        append("\0", 1); 
-        _writeindex--;
-        return peek(); 
-    }
+    { append("\0", 1); _writeindex--; return peek(); }
     // 内部腾挪
     void makeSpace(size_t len)
     {
