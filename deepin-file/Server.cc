@@ -22,6 +22,9 @@ void printStr(const char *s)
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf);
 
+// 从外部中断(Ctr + C)和在logError()中调用exit()，都不会引发
+// stack对象的析构，所以我们需要主动退出logger，从而保证将
+// _flushBuf中的消息都写到文件中
 static void sig_int(int signo)
 {
     _log->quit();

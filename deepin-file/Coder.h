@@ -3,12 +3,6 @@
 
 #include <string>
 
-// [_type] [_path] [_macAddr]\r\n REQ_LINE
-// [_fileSize: size]\r\n REQ_HEADER
-// \r\n
-// [Text]
-//
-
 class Request {
 public:
     enum {

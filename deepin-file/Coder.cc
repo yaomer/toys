@@ -15,24 +15,23 @@
 
 void fileMkdir(const char *pathname, const char *mac)
 {
-    std::string t("./backupfile/");
-	t += mac;
-	t += "/";
-    t += pathname;
+    std::string dir("./backupfile/");
+	dir += mac;
+	dir += "/";
+    dir += pathname;
 
-    auto t2 = t.begin() + 3;
-    while (t2 <= t.end()) {
-        for ( ; t2 != t.end(); t2++) {
-            if(*t2 == '/')
+    auto tr = dir.begin() + 2;
+    while (tr <= dir.end()) {
+        for ( ; tr != dir.end(); tr++) {
+            if(*tr == '/')
                 break;
         }
-        if (t2 >= t.end())
+        if (tr >= dir.end())
             break;
-        char c[100];
-        bzero(c, sizeof(c));
-        strncpy(c, t.c_str(), t2 - t.begin());
-        mkdir(c, 0777);
-        t2++;
+        std::string s;
+        s.insert(s.begin(), dir.begin(), tr);
+        mkdir(s.c_str(), 0777);
+        tr++;
     }
 }
 
@@ -171,8 +170,10 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         req.setState(Request::LINE);
     } else
         req.setFilesize(req.filesize() - n);
-    write(req.fd(), buf.peek(), n);
-    buf.retrieve(n);
+    ssize_t nw = write(req.fd(), buf.peek(), n);
+    if (nw != n)
+        req.setFilesize(req.filesize() + n - nw);
+    buf.retrieve(nw);
     logDebug("write %zu bytes to file(%s)", n, pathname.c_str());
     if (req.state() == Request::LINE) {
         replySaveOk(chl);

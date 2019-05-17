@@ -23,6 +23,8 @@ void EventLoop::run(void)
     addWakeChannel();
     // 每隔 3s flush一次日志
     runEvery(1000 * 3, std::bind(&Logger::wakeUp, _log));
+    // 5s后退出loop
+    // runAfter(1000 * 5, std::bind(&EventLoop::quit, this));
 
     while (!_quit) {
         int nevents = _poller->wait(this, _timer.timeout());

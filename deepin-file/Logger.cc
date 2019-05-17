@@ -66,8 +66,8 @@ void *Logger::flushToFile(void *arg)
             pthread_mutex_unlock(&_l->_mutex);
             exit(1);
         }
-        write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
-        _l->_flushBuf.retrieveAll();
+        ssize_t n = write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
+        _l->_flushBuf.retrieve(n);
         pthread_mutex_unlock(&_l->_mutex);
     }
 }

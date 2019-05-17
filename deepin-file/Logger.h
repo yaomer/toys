@@ -3,10 +3,11 @@
 
 #include <pthread.h>
 #include "Buffer.h"
+#include "Noncopyable.h"
 
 class EventLoop;
 
-class Logger {
+class Logger : Noncopyable {
 public:
     Logger();
     ~Logger();
