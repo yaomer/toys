@@ -36,7 +36,7 @@ void EventLoop::run(void)
         } else if (nevents == 0)
             _timer.tick();
         else
-            logWarn("_poller->wait error: %s", strerror(errno));
+            logWarn("poller->wait error: %s", strerror(errno));
     }
 }
 

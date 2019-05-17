@@ -64,7 +64,6 @@ void parseHeader(Request& req, Buffer& buf, int len)
     char *ep = p + len;
 
     if (strncmp(p, "\r\n", 2) == 0) {
-        // std::cout << "parse success" << std::endl;
         if (req.type() == "SAVE")
             req.setState(Request::OK | Request::RECVING);
         else if (req.type() == "GET")
@@ -133,8 +132,9 @@ void replyGetOk(Channel *chl, Request& req)
 {
     char buf[32];
     struct stat st;
-    if (lstat(getPathname(req).c_str(), &st) < 0) {
-        logWarn("lstat %s error: %s", getPathname(req).c_str(),
+    std::string pathname = getPathname(req);
+    if (lstat(pathname.c_str(), &st) < 0) {
+        logWarn("lstat file(%s) error: %s", pathname.c_str(),
                 strerror(errno));
         return;
     }
@@ -164,17 +164,25 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         }
         req.setFd(fd);
     }
-    size_t n = buf.readable();
-    if (n >= req.filesize()) {
-        n = req.filesize();
+    size_t readable = buf.readable();
+    if (readable >= req.filesize()) {
+        readable = req.filesize();
         req.setState(Request::LINE);
-    } else
-        req.setFilesize(req.filesize() - n);
-    ssize_t nw = write(req.fd(), buf.peek(), n);
-    if (nw != n)
-        req.setFilesize(req.filesize() + n - nw);
-    buf.retrieve(nw);
-    logDebug("write %zu bytes to file(%s)", n, pathname.c_str());
+    } else  // 文件还未接收完
+        req.setFilesize(req.filesize() - readable);
+    while (1) {
+        ssize_t n = write(req.fd(), buf.peek(), readable);
+        if (n < 0) {
+            logWarn("can't write to file(%s): %s", pathname.c_str(),
+                    strerror(errno));
+            return;
+        }
+        buf.retrieve(n);
+        if (n < readable)
+            readable -= n;
+        else
+            break;
+    }
     if (req.state() == Request::LINE) {
         replySaveOk(chl);
         close(req.fd());
@@ -190,9 +198,12 @@ void sendFile(Channel *chl, Request& req)
     Buffer buf;
     std::string pathname = getPathname(req);
     int fd = open(pathname.c_str(), O_RDONLY);
+    if (fd < 0) {
+        logWarn("file(%s) can't open: %s", pathname.c_str(),
+                strerror(errno));
+        return;
+    }
     while (buf.readFd(fd) > 0) {
-        logDebug("read %zu bytes from file(%s)", buf.readable(),
-                pathname.c_str());
         chl->send(buf.peek(), buf.readable());
         buf.retrieveAll();
     }

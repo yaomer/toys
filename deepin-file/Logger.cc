@@ -66,14 +66,22 @@ void *Logger::flushToFile(void *arg)
             pthread_mutex_unlock(&_l->_mutex);
             exit(1);
         }
-        ssize_t n = write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
-        _l->_flushBuf.retrieve(n);
+        while (1) {
+            ssize_t n = write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
+            if (n < 0) {
+                fprintf(stderr, "flushToFile write error: %s", strerror(errno));
+                exit(1);
+            }
+            _l->_flushBuf.retrieve(n);
+            if (_l->_flushBuf.readable() == 0)
+                break;
+        }
         pthread_mutex_unlock(&_l->_mutex);
     }
 }
 
-void Logger::output(int level, const char *_FILE_, int _LINE_,
-        const char *fmt, ...)
+void Logger::output(int level, const char *file, int line,
+        const char *func, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -89,10 +97,12 @@ void Logger::output(int level, const char *_FILE_, int _LINE_,
         str += ": ";
     str += Timer::timestr(Timer::now(), buf, sizeof(buf));
     str += " ";
-    str += _FILE_;
+    str += file;
     str += ": ";
-    snprintf(buf, sizeof(buf), "%d", _LINE_);
+    snprintf(buf, sizeof(buf), "%d", line);
     str += buf;
+    str += ": ";
+    str += func;
     str += ": [";
     vsnprintf(buf, sizeof(buf), fmt, ap);
     str += buf;
