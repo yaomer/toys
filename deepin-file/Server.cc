@@ -6,8 +6,12 @@
 #include "Channel.h"
 #include "Buffer.h"
 #include "Socket.h"
-#include "Poll.h"
 #include "Logger.h"
+#if defined (__linux__)
+#include "Epoll.h"
+#else
+#include "Poll.h"
+#endif
 
 void onPrint(std::shared_ptr<Channel> chl, Buffer& buf)
 {
@@ -36,8 +40,13 @@ int main(void)
     signal(SIGINT,  sig_int);
     Logger logger;
     _log = &logger;
+#if defined (__linux__)
+    Epoll epoll;
+    EventLoop loop(&epoll);
+#else
     Poll poll;
     EventLoop loop(&poll);
+#endif
     logDebug("Server is using Poll");
     Channel *chl = new Channel(&loop);
     chl->socket().setPort(8888);
