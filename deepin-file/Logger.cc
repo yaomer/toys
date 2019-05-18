@@ -66,6 +66,9 @@ void *Logger::flushToFile(void *arg)
             pthread_mutex_unlock(&_l->_mutex);
             exit(1);
         }
+        // 将日志打印到屏幕上
+        fprintf(stderr, "%s", _l->_flushBuf.c_str());
+        // _l->_flushBuf.retrieveAll();
         while (1) {
             ssize_t n = write(fd, _l->_flushBuf.peek(), _l->_flushBuf.readable());
             if (n < 0) {
@@ -95,7 +98,8 @@ void Logger::output(int level, const char *file, int line,
         str += ":  ";
     else if (level == ERROR)
         str += ": ";
-    str += Timer::timestr(Timer::now(), buf, sizeof(buf));
+    str += Timer::timestr(Timer::LOCAL_TIME, Timer::now(),
+            buf, sizeof(buf));
     str += " ";
     str += file;
     str += ": ";

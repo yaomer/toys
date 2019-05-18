@@ -63,7 +63,8 @@ void parseHeader(Request& req, Buffer& buf, int len)
     char *p = buf.peek();
     char *ep = p + len;
 
-    if (strncmp(p, "\r\n", 2) == 0) {
+    // 收到了空行
+    if (p == ep) {
         if (req.type() == "SAVE")
             req.setState(Request::OK | Request::RECVING);
         else if (req.type() == "GET")
@@ -75,8 +76,6 @@ void parseHeader(Request& req, Buffer& buf, int len)
         while (p < ep && (*p == ' ' || *p == '\t'))
             p++;
         req.setFilesize(atoi(p));
-        while (p < ep && isalnum(*p))
-            p++;
     } else {
         ; // 目前头部只有一个字段
     }
@@ -114,9 +113,11 @@ std::string getPathname(Request& req)
 // SAVE-OK\r\n
 // filesize: 0\r\n
 // \r\n
-void replySaveOk(Channel *chl)
+void replySaveOk(Channel *chl, Request& req)
 {
-    std::string s("SAVE-STATUS\r\n");
+    std::string s("SAVE-STATUS ");
+    s += req.path();
+    s += "\r\n";
     s += "filesize: 0\r\n";
     s += "\r\n";
     chl->send(s.c_str(), s.size());
@@ -136,6 +137,7 @@ void replyGetOk(Channel *chl, Request& req)
     if (lstat(pathname.c_str(), &st) < 0) {
         logWarn("lstat file(%s) error: %s", pathname.c_str(),
                 strerror(errno));
+        req.setState(Request::ERROR);
         return;
     }
     snprintf(buf, sizeof(buf), "%lld\r\n", st.st_size);
@@ -160,6 +162,7 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         if (fd < 0) {
             logWarn("file(%s) can't open: %s", pathname.c_str(),
                     strerror(errno));
+            req.setState(Request::ERROR);
             return;
         }
         req.setFd(fd);
@@ -175,8 +178,10 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         if (n < 0) {
             logWarn("can't write to file(%s): %s", pathname.c_str(),
                     strerror(errno));
+            req.setState(Request::ERROR);
             return;
         }
+        logDebug("write %zu bytes to file(%s)", n, pathname.c_str());
         buf.retrieve(n);
         if (n < readable)
             readable -= n;
@@ -184,7 +189,7 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
             break;
     }
     if (req.state() == Request::LINE) {
-        replySaveOk(chl);
+        replySaveOk(chl, req);
         close(req.fd());
         req.setFd(-1);
         if (buf.readable() > 0)
@@ -201,6 +206,7 @@ void sendFile(Channel *chl, Request& req)
     if (fd < 0) {
         logWarn("file(%s) can't open: %s", pathname.c_str(),
                 strerror(errno));
+        req.setState(Request::ERROR);
         return;
     }
     while (buf.readFd(fd) > 0) {
@@ -208,6 +214,7 @@ void sendFile(Channel *chl, Request& req)
         buf.retrieveAll();
     }
     close(fd);
+    req.setState(Request::LINE);
 }
 
 // 向客户回复响应信息
@@ -217,7 +224,8 @@ void replyResponse(Channel *chl, Buffer& buf, Request& req)
         recvFile(chl, buf, req);
     } else if (req.type() == "GET") {
         replyGetOk(chl, req);
-        sendFile(chl, req);
+        if (req.state() != Request::ERROR)
+            sendFile(chl, req);
     }
 }
 
@@ -231,7 +239,7 @@ void printInfo(Request& req)
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
 {
-    // std::cout << buf.c_str();
+    // std::cout << ">>client: " << std::endl << buf.c_str();
     // buf.retrieveAll();
     Channel *chlptr = chl.get();
     Request& req = chl->req();
@@ -251,7 +259,10 @@ _continue:
                 req.mac().c_str(), req.filesize());
         fileMkdir(req.path().c_str(), req.mac().c_str());
         replyResponse(chlptr, buf, req);
-        if (req.state() & Request::CONTINUE) {
+        if (req.state() == Request::ERROR) {
+            chl->handleClose();
+            return;
+        } else if (req.state() & Request::CONTINUE) {
             req.setState(req.state() & ~Request::CONTINUE);
             goto _continue;
         }

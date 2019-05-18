@@ -21,8 +21,8 @@ void EventLoop::addWakeChannel(void)
 void EventLoop::run(void)
 {
     addWakeChannel();
-    // 每隔 3s flush一次日志
-    runEvery(1000 * 3, std::bind(&Logger::wakeUp, _log));
+    // 每隔 1s 将Log Buffer中的数据flush到文件中
+    runEvery(1000 * 1, std::bind(&Logger::wakeUp, _log));
     // 5s后退出loop
     // runAfter(1000 * 5, std::bind(&EventLoop::quit, this));
 

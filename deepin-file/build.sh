@@ -5,12 +5,17 @@ CXXFLAGS=-std=c++11
 
 if [ $PLATFORM == "Linux" ]; then
     CXX=g++
+    EXTRA=Poll.cc Epoll.cc
 elif [ $PLATFORM == "Darwin" ]; then
     CXX=clang++
+    EXTRA=Poll.cc
 else
     echo "unknown platform"
 fi
 
-echo "$CXX $CXXFLAGS *.cc -lpthread"
+SRC="Buffer.cc Channel.cc EventLoop.cc Coder.cc Logger.cc
+     Socket.cc Timer.cc Server.cc $EXTRA"
 
-$CXX -std=c++11 *.cc -lpthread
+echo "$CXX $CXXFLAGS $SRC -lpthread"
+
+$CXX $CXXFLAGS $SRC -lpthread

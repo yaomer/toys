@@ -32,7 +32,7 @@ public:
     // 从loop中移除一个Channel
     void delChannel(Channel *chl)
     {
-        logDebug("%d is closed", chl->fd());
+        logDebug("fd(%d) is closed", chl->fd());
         _poller->del(chl->fd());
         _channelMap.erase(chl->fd());
     }

@@ -6,11 +6,14 @@
 class Request {
 public:
     enum {
-        LINE        = 001,  // 请求行
-        HEADER      = 002,  // 请求头部
-        RECVING     = 004,  // 正在接收文件
-        OK          = 010,  // 解析成功
-        CONTINUE    = 020,
+        LINE        = 0x01,  // 请求行
+        HEADER      = 0x02,  // 请求头部
+        RECVING     = 0x04,  // 正在接收文件
+        OK          = 0x08,  // 解析成功
+        CONTINUE    = 0x10,
+        ERROR       = 0x20,
+        // SAVE        = 0x40,
+        // GET         = 0x80,
     };
     int state() { return _state; }
     int fd() { return _fd; }

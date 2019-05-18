@@ -11,12 +11,16 @@ int64_t Timer::now()
     return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
-// len >= 24
-const char *Timer::timestr(int64_t ms, char *buf, size_t len)
+// len >= 25
+const char *Timer::timestr(int option, int64_t ms, char *buf, size_t len)
 {
     struct tm tm;
     time_t seconds = ms / 1000;
-    gmtime_r(&seconds, &tm);
+    if (option == LOCAL_TIME)
+        localtime_r(&seconds, &tm);
+    else
+        gmtime_r(&seconds, &tm);
+
     snprintf(buf, len, "%4d-%02d-%02d %02d:%02d:%02d.%04lld",
             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
             tm.tm_hour, tm.tm_min, tm.tm_sec, ms % 1000);

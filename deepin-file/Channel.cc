@@ -17,17 +17,15 @@ void Channel::changeEvent(void)
 void Channel::send(const char *s, size_t len)
 {
     setStatus(Channel::SENDING);
-    logDebug("fd(%d) state is SENDING", fd());
     if (!isWriting() && _output.readable() == 0) {
         ssize_t n = write(fd(), s, len);
-        logDebug("send %zu bytes to fd(%d)", n, fd());
+        logDebug("write %zu bytes to fd(%d): %s", n, fd(), s);
         if (n > 0) {
             if (n < len) {
                 _output.append(s + n, len - n);
                 enableWrite();
             } else {
                 clearStatus(Channel::SENDING);
-                logDebug("fd(%d) state SENDING is cleaned", fd());
                 if (_writeCompleteCb)
                     _writeCompleteCb();
             }
@@ -71,7 +69,7 @@ void Channel::handleAccept(void)
 void Channel::handleRead(void)
 {
     ssize_t n = _input.readFd(fd());
-    logDebug("read %zu bytes from fd(%d)", n, fd());
+    logDebug("read %zu bytes from fd(%d): %s", n, fd(), _input.c_str());
     if (n > 0) {
         if (_messageCb)
             _messageCb(shared_from_this(), _input);
@@ -85,7 +83,7 @@ void Channel::handleWrite(void)
 {
     if (isWriting()) {
         ssize_t n = write(fd(), _output.peek(), _output.readable());
-        logDebug("send %zu bytes to fd(%d)", n, fd());
+        logDebug("write %zu bytes to fd(%d)", n, fd());
         if (n >= 0) {
             _output.retrieve(n);
             if (_output.readable() == 0) {

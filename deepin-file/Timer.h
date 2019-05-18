@@ -34,8 +34,13 @@ public:
 // 暂时不支持取消定时器
 class Timer : Noncopyable {
 public:
+    enum TIMESTR_STATE {
+        GMT_TIME,    // GMT时间
+        LOCAL_TIME,  // 本地时间
+    };
     static int64_t now();
-    static const char *timestr(int64_t ms, char *buf, size_t len);
+    static const char *timestr(int option, int64_t ms, char *buf, 
+            size_t len);
     // 添加一个定时器
     void add(Timestamp *_t)
     {
