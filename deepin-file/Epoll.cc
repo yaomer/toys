@@ -8,8 +8,11 @@ int Epoll::wait(EventLoop *loop, int64_t timeout)
 {
     int nevents = epoll_wait(_epfd, &_epfds[0], _epfds.size(), timeout);
     if (nevents > 0) {
-        auto chl = loop->search(_epfds[i].data.fd);
-        chl.get()->setRevents(_epfds[i].events);
-        loop->fillActiveChannel(chl);
+        for (int i = 0; i < nevents; i++) {
+            auto chl = loop->search(_epfds[i].data.fd);
+            chl.get()->setRevents(_epfds[i].events);
+            loop->fillActiveChannel(chl);
+        }
     }
+    return nevents;
 }

@@ -47,7 +47,6 @@ int main(void)
     Poll poll;
     EventLoop loop(&poll);
 #endif
-    logDebug("Server is using Poll");
     Channel *chl = new Channel(&loop);
     chl->socket().setPort(8888);
     chl->socket().listen();
