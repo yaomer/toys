@@ -13,23 +13,14 @@ public:
     ~Logger();
     enum level {
         DEBUG   = 001,
-        WARN    = 002,
-        ERROR   = 004,
+        INFO    = 002,
+        WARN    = 004,
+        ERROR   = 010,
     };
     void wakeUp();
     void output(int level, const char *file, int line, 
             const char *func, const char *fmt, ...);
-    const char *levelstr(int level)
-    {
-        if (level == DEBUG)
-            return "DEBUG";
-        else if (level == WARN)
-            return "WARN";
-        else if (level == ERROR)
-            return "ERROR";
-        else
-            return "NONE";
-    }
+    const char *levelStr(int level);
     void quit() 
     { 
         _quit = 1; 
@@ -51,6 +42,8 @@ extern Logger *_log;
 
 #define logDebug(...) \
     _log->output(Logger::DEBUG, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define logInfo(...) \
+    _log->output(Logger::INFO, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define logWarn(...) \
     _log->output(Logger::WARN, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define logError(...) \

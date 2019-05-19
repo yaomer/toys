@@ -11,7 +11,11 @@ class EventLoop;
 
 class Epoll : public Poller, Noncopyable {
 public:
-    Epoll() : _nfds(0) { _epfd = epoll_create(1); }
+    Epoll() : _fds(0), _nfds(16) 
+    { 
+        _epfd = epoll_create(1); 
+        _epfds.reserve(_nfds);
+    }
     ~Epoll() { close(_epfd); }
     int wait(EventLoop *loop, int64_t timeout);
     void add(int fd, int events)
@@ -21,7 +25,10 @@ public:
         ev.events = events;
         if (epoll_ctl(_epfd, EPOLL_CTL_ADD, fd, &ev) < 0)
             ;
-        _epfds.resize(++_nfds);
+        if (++_fds >= _nfds) {
+            _nfds *= 2;
+            _epfds.reserve(_nfds);
+        }
     }
     void change(int fd, int events)
     {
@@ -35,10 +42,12 @@ public:
     {
         if (epoll_ctl(_epfd, EPOLL_CTL_DEL, fd, NULL) < 0)
             ;
+        _fds--;
     }
 private:
     std::vector<struct epoll_event> _epfds;
     int _epfd;
+    int _fds;
     int _nfds;
 };
 

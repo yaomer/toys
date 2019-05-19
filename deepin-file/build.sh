@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 PLATFORM=$(uname -s)
 CXXFLAGS=-std=c++11

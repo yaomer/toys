@@ -91,9 +91,11 @@ void Logger::output(int level, const char *file, int line,
 
     std::string str;
     char buf[65536];
-    str += levelstr(level);
+    str += levelStr(level);
     if (level == DEBUG)
         str += ": ";
+    else if (level == INFO)
+        str += ":  ";
     else if (level == WARN)
         str += ":  ";
     else if (level == ERROR)
@@ -102,10 +104,10 @@ void Logger::output(int level, const char *file, int line,
             buf, sizeof(buf));
     str += " ";
     str += file;
-    str += ": ";
+    str += ":";
     snprintf(buf, sizeof(buf), "%d", line);
     str += buf;
-    str += ": ";
+    str += ":";
     str += func;
     str += ": [";
     vsnprintf(buf, sizeof(buf), fmt, ap);
@@ -117,4 +119,18 @@ void Logger::output(int level, const char *file, int line,
         fprintf(stderr, ">>logError\n");
         quit();
     }
+}
+
+const char *Logger::levelStr(int level)
+{
+    if (level == DEBUG)
+        return "DEBUG";
+    else if (level == INFO)
+        return "INFO";
+    else if (level == WARN)
+        return "WARN";
+    else if (level == ERROR)
+        return "ERROR";
+    else
+        return "NONE";
 }

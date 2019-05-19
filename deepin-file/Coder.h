@@ -5,7 +5,7 @@
 
 class Request {
 public:
-    enum {
+    enum State {
         LINE        = 0x01,  // 请求行
         HEADER      = 0x02,  // 请求头部
         RECVING     = 0x04,  // 正在接收文件
@@ -24,6 +24,7 @@ public:
     void setState(int state) { _state = state; }
     void setFd(int fd) { _fd = fd; }
     void setFilesize(size_t filesize) { _filesize = filesize; }
+    std::string stateStr();
 private:
     int _state = LINE;
     int _fd = -1;

@@ -11,20 +11,26 @@
 
 void Channel::changeEvent(void)
 {
+    int evs = events();
     _loop->changeEvent(fd(), events());
+    logDebug("fd(%d)'s events %s is changed to %s", eventStr(evs),
+            eventStr(events()));
 }
 
 void Channel::send(const char *s, size_t len)
 {
     setStatus(Channel::SENDING);
+    logDebug("sending to fd(%d)'s message len is %d", fd(), len);
     if (!isWriting() && _output.readable() == 0) {
         ssize_t n = write(fd(), s, len);
-        logDebug("write %zu bytes to fd(%d): %s", n, fd(), s);
+        logDebug("write %zu bytes to fd(%d)", n, fd());
         if (n > 0) {
             if (n < len) {
+                logDebug("the left %zd bytes is append to fd(%d)'s output buffer", n, fd());
                 _output.append(s + n, len - n);
                 enableWrite();
             } else {
+                logDebug("the whole message is sent");
                 clearStatus(Channel::SENDING);
                 if (_writeCompleteCb)
                     _writeCompleteCb();
@@ -37,13 +43,16 @@ void Channel::send(const char *s, size_t len)
                 handleClose();
             }
         }
-    } else
+    } else {
+        logDebug("the whole message %zd bytes is append to fd(%d)'s output buffer",
+                len, fd());
         _output.append(s, len);
+    }
 }
 
 void Channel::handleEvent(void)
 {
-    logDebug("fd(%d)'s revents is %s", fd(), eventstr(_revents));
+    logDebug("fd(%d)'s revents is %s", fd(), eventStr(_revents));
     // 写事件由loop自动负责
     if (_revents & POLLOUT) {
         handleWrite();
@@ -69,7 +78,7 @@ void Channel::handleAccept(void)
 void Channel::handleRead(void)
 {
     ssize_t n = _input.readFd(fd());
-    logDebug("read %zu bytes from fd(%d): %s", n, fd(), _input.c_str());
+    logDebug("read %zu bytes from fd(%d)", n, fd());
     if (n > 0) {
         if (_messageCb)
             _messageCb(shared_from_this(), _input);
@@ -107,7 +116,7 @@ void Channel::handleWrite(void)
 void Channel::handleClose(void)
 {
     if (_status == Channel::SENDING) {
-        // 消息发送完后再关闭连接
+        logDebug("the message is sending, close the connection later");
         setWriteCompleteCb(std::bind(&EventLoop::delChannel, _loop, this));
     } else
         _loop->delChannel(this);
@@ -119,7 +128,7 @@ void Channel::handleError(void)
     handleClose();
 }
 
-const char *Channel::eventstr(int events)
+const char *Channel::eventStr(int events)
 {
     if (events == POLLIN)
         return "POLLIN";

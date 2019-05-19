@@ -40,6 +40,7 @@ void parseLine(Request& req, Buffer& buf, int len)
     char *p = buf.peek();
     char *ep = p + len;
 
+    logInfo("parsing request line");
     req.type().clear();
     req.path().clear();
     req.mac().clear();
@@ -63,12 +64,16 @@ void parseHeader(Request& req, Buffer& buf, int len)
     char *p = buf.peek();
     char *ep = p + len;
 
+    logInfo("parsing request header");
     // 收到了空行
     if (p == ep) {
-        if (req.type() == "SAVE")
-            req.setState(Request::OK | Request::RECVING);
-        else if (req.type() == "GET")
+        if (req.type() == "SAVE") {
+            logInfo("recv SAVE request");
             req.setState(Request::OK);
+        } else if (req.type() == "GET") {
+            logInfo("recv GET request");
+            req.setState(Request::OK);
+        }
         return;
     }
     if (strncasecmp(p, "filesize:", 9) == 0) {
@@ -76,6 +81,7 @@ void parseHeader(Request& req, Buffer& buf, int len)
         while (p < ep && (*p == ' ' || *p == '\t'))
             p++;
         req.setFilesize(atoi(p));
+        logInfo("recv [filesize] field");
     } else {
         ; // 目前头部只有一个字段
     }
@@ -85,10 +91,14 @@ void parseHeader(Request& req, Buffer& buf, int len)
 void parseRequest(Buffer& buf, Request& req)
 {
     // 可能有一行完整的消息
+    if (buf.readable() < 2)
+        logInfo("recv %d bytes, less than 2(\r\n) chars", buf.readable());
     while (buf.readable() >= 2) {
         int crlf = buf.findCrlf();
         // 至少有一行请求
         if (crlf >= 0) {
+            logInfo("recv %d bytes, is one line");
+            logInfo("enter parse, state is %s", req.stateStr().c_str());
             if (req.state() == Request::LINE) {
                 parseLine(req, buf, crlf);
                 crlf += 2;
@@ -98,8 +108,10 @@ void parseRequest(Buffer& buf, Request& req)
             } else
                 break;
             buf.retrieve(crlf);
-        } else
+        } else {
+            logInfo("recv %d bytes, less than one line", buf.readable());
             break;
+        }
     }
 }
 
@@ -156,6 +168,7 @@ void replyGetOk(Channel *chl, Request& req)
 void recvFile(Channel *chl, Buffer& buf, Request& req)
 {
     std::string pathname = getPathname(req);
+    logInfo("recving file from fd(%d)", chl->fd());
     if (req.fd() < 0) {
         int fd = open(pathname.c_str(), O_WRONLY | O_APPEND
                 | O_CREAT | O_TRUNC, 0666);
@@ -168,11 +181,15 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
         req.setFd(fd);
     }
     size_t readable = buf.readable();
+    logInfo("readable is %zu bytes, filesize is %zu bytes", readable,
+            req.filesize());
     if (readable >= req.filesize()) {
         readable = req.filesize();
         req.setState(Request::LINE);
-    } else  // 文件还未接收完
+    } else { // 文件还未接收完
         req.setFilesize(req.filesize() - readable);
+        req.setState(req.state() | Request::RECVING);
+    }
     while (1) {
         ssize_t n = write(req.fd(), buf.peek(), readable);
         if (n < 0) {
@@ -189,6 +206,7 @@ void recvFile(Channel *chl, Buffer& buf, Request& req)
             break;
     }
     if (req.state() == Request::LINE) {
+        logInfo("file recved, sending SAVE response");
         replySaveOk(chl, req);
         close(req.fd());
         req.setFd(-1);
@@ -202,6 +220,7 @@ void sendFile(Channel *chl, Request& req)
 {
     Buffer buf;
     std::string pathname = getPathname(req);
+    logInfo("sending file");
     int fd = open(pathname.c_str(), O_RDONLY);
     if (fd < 0) {
         logWarn("file(%s) can't open: %s", pathname.c_str(),
@@ -223,18 +242,11 @@ void replyResponse(Channel *chl, Buffer& buf, Request& req)
     if (req.type() == "SAVE") {
         recvFile(chl, buf, req);
     } else if (req.type() == "GET") {
+        logInfo("sending GET response");
         replyGetOk(chl, req);
         if (req.state() != Request::ERROR)
             sendFile(chl, req);
     }
-}
-
-void printInfo(Request& req)
-{
-    std::cout << "TYPE:     " << req.type() << std::endl
-              << "PATH:     " << req.path() << std::endl
-              << "MAC:      " << req.mac()  << std::endl
-              << "FILESIZE: " << req.filesize() << std::endl;
 }
 
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
@@ -243,6 +255,7 @@ void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
     // buf.retrieveAll();
     Channel *chlptr = chl.get();
     Request& req = chl->req();
+    logInfo("start parsing, state is %s", req.stateStr().c_str());
     if (req.state() & Request::RECVING) {
         // 继续接收剩余的文件
         recvFile(chlptr, buf, req);
@@ -251,14 +264,17 @@ void onMessage(std::shared_ptr<Channel> chl, Buffer& buf)
         // 解析新到来的请求
 _continue:
         parseRequest(buf, req);
+        logInfo("parsed, state is %s", req.stateStr().c_str());
     }
     if (req.state() & Request::OK) {
         // printInfo(req);
-        logDebug("recv request from fd(%d): type: %s, path: %s, mac: %s, filesize: %zu",
+        logDebug("recv request from fd(%d): [type: %s] [path: %s] [mac: %s] [filesize: %zu]",
                 chl->fd(), req.type().c_str(), req.path().c_str(),
                 req.mac().c_str(), req.filesize());
         fileMkdir(req.path().c_str(), req.mac().c_str());
+        logInfo("parse successfully, constructing response");
         replyResponse(chlptr, buf, req);
+        logInfo("sended response, state is %s", req.stateStr().c_str());
         if (req.state() == Request::ERROR) {
             chl->handleClose();
             return;
@@ -267,4 +283,22 @@ _continue:
             goto _continue;
         }
     }
+}
+
+std::string Request::stateStr(void)
+{
+    std::string s;
+    if (state() & LINE)
+        s += "LINE|";
+    if (state() & HEADER)
+        s += "HEADER|";
+    if (state() & RECVING)
+        s += "RECVING|";
+    if (state() & OK)
+        s += "OK|";
+    if (state() & CONTINUE)
+        s += "CONTINUE|";
+    if (state() & ERROR)
+        s += "ERROR|";
+    return s;
 }

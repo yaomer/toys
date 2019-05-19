@@ -15,11 +15,8 @@
 class EventLoop : Noncopyable {
 public:
     explicit EventLoop(Poller *poller) 
-        : _poller(poller), _quit(0) 
-    { 
-        _wakeFd[0] = -1;
-        _wakeFd[1] = -1;
-    }
+        : _poller(poller), _quit(0), _loop(0)
+    {  }
     ~EventLoop() {  }
     // 向loop中添加一个新的Channel
     void addChannel(Channel *chl)
@@ -44,16 +41,14 @@ public:
     {
         auto it = _channelMap.find(fd);
         assert(it != _channelMap.end());
+        logDebug("found <fd(%d), chl>", fd);
         return it->second;
     }
     void fillActiveChannel(std::shared_ptr<Channel> chl) 
     { 
+        logDebug("chl(fd(%d)) is added to _activeChannels", chl->fd());
         _activeChannels.push_back(chl); 
     }
-    void handleRead();
-    void addWakeChannel();
-    // 唤醒loop
-    void wakeUp();
     void runAfter(int64_t timeout, TimerCallback _cb);
     void runEvery(int64_t interval, TimerCallback _cb);
     void run();
@@ -63,8 +58,8 @@ private:
     std::map<int, std::shared_ptr<Channel>> _channelMap;
     std::vector<std::shared_ptr<Channel>> _activeChannels;
     Timer _timer;
-    int _wakeFd[2];
     int _quit;
+    int _loop;
 };
 
 #endif // _EVENTLOOP_H

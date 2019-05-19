@@ -13,17 +13,6 @@
 #include "Poll.h"
 #endif
 
-void onPrint(std::shared_ptr<Channel> chl, Buffer& buf)
-{
-    std::cout << buf.c_str();
-    buf.retrieveAll();
-}
-
-void printStr(const char *s)
-{
-    std::cout << s << std::endl;
-}
-
 void onMessage(std::shared_ptr<Channel> chl, Buffer& buf);
 
 // 从外部中断(Ctr + C)和在logError()中调用exit()，都不会引发
@@ -41,12 +30,11 @@ int main(void)
     Logger logger;
     _log = &logger;
 #if defined (__linux__)
-    Epoll epoll;
-    EventLoop loop(&epoll);
+    Epoll poller;
 #else
-    Poll poll;
-    EventLoop loop(&poll);
+    Poll poller;
 #endif
+    EventLoop loop(&poller);
     Channel *chl = new Channel(&loop);
     chl->socket().setPort(8888);
     chl->socket().listen();
@@ -57,16 +45,5 @@ int main(void)
                 std::placeholders::_1,
                 std::placeholders::_2));
     loop.addChannel(chl);
-    // e.g. 监听stdin
-    // Channel *_in = new Channel(&loop);
-    // _in->socket().setFd(0);
-    // _in->setReadCb(std::bind(&Channel::handleRead, _in));
-    // _in->setMessageCb(std::bind(&onPrint,
-                // std::placeholders::_1,
-                // std::placeholders::_2));
-    // loop.addChannel(_in);
-    // e.g. timer
-    // loop.runEvery(200, std::bind(&printStr, "hello, world"));
-    // loop.runEvery(800, std::bind(&printStr, "1234567"));
     loop.run();
 }
